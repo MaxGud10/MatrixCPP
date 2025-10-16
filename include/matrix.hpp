@@ -58,53 +58,54 @@ public:
 
             return 0;
         }
+
         #ifdef DEBUG 
             dump();
         #endif
 
-        size_t swapCount = 0;
+        size_t         swap_count  = 0;
+        Matrix<double> matrix_copy = *this;
         
-        Matrix<double> matrixCopy = *this;
-        
-        if (!matrixCopy.gaussianElimination(swapCount))
+        if (!matrix_copy.gaussian_elimination(swap_count))
         {
             return 0;
         }
+
         #ifdef DEBUG
-            matrixCopy.dump();
+            matrix_copy.dump();
         #endif
 
         double det = 1;
 
         for (size_t i = 0; i < cols_; ++i)
         {
-            det *= matrixCopy[i][i];
+            det *= matrix_copy[i][i];
         }
 
-        return (swapCount % 2 == 0) ? det : -det;
+        return (swap_count % 2 == 0) ? det : -det;
     }
 
-    bool gaussianElimination(size_t& swapCount)
+    bool gaussian_elimination(size_t& swap_count)
     {
-        for (size_t iRow = 0; iRow < rows_; ++iRow)
+        for (size_t i_row = 0; i_row < rows_; ++i_row)
         {
-            size_t pivotRow = findPivotRow(iRow);
+            size_t pivot_row = find_pivot_row(i_row);
 
-            if (data_[pivotRow][iRow] == 0)
+            if (data_[pivot_row][i_row] == 0)
             {
                 return false;
             }
 
-            if (pivotRow != iRow)
+            if (pivot_row != i_row)
             {
-                swapRows(iRow, pivotRow);
-                swapCount++;
+                swap_rows(i_row, pivot_row);
+                swap_count++;
             }
 
-            eliminateColumn(iRow);
-            #ifdef DEBUG
+            eliminate_column(i_row);
+            //#ifdef DEBUG
                 dump();
-            #endif
+            //#endif
         }
 
         return true; 
@@ -126,7 +127,7 @@ public:
     }
 
 private:
-    void swapRows(size_t row1, size_t row2)
+    void swap_rows(size_t row1, size_t row2)
     {
         if (row1 == row2)
             return;
@@ -137,35 +138,34 @@ private:
         }
     }
 
-    size_t findPivotRow(size_t col)
+    size_t find_pivot_row(size_t col)
     {
-        size_t maxRow = col;
+        size_t max_row  = col;
+        ElemT  max_elem = std::abs(data_[col][col]);
 
-        ElemT maxElem = std::abs(data_[col][col]);
-
-        for (size_t iCol = col + 1; iCol < cols_; iCol++)
+        for (size_t i_col = col + 1; i_col < cols_; i_col++)
         {
-            ElemT curElem = std::abs(data_[iCol][col]);
+            ElemT cur_elem = std::abs(data_[i_col][col]);
 
-            if (curElem > maxElem)
+            if (cur_elem > max_elem)
             {
-                maxElem = curElem; 
-                maxRow = iCol;
+                max_elem = cur_elem; 
+                max_row  = i_col;
             }
         }
 
-        return maxRow;
+        return max_row;
     }
 
-    void eliminateColumn(size_t pivotRow) 
+    void eliminate_column(size_t pivot_row) 
     {
-        for (size_t iRow = pivotRow + 1; iRow < rows_; ++iRow)
+        for (size_t i_row = pivot_row + 1; i_row < rows_; ++i_row)
         {
-            double factor = data_[iRow][pivotRow] / data_[pivotRow][pivotRow];
+            double factor = data_[i_row][pivot_row] / data_[pivot_row][pivot_row];
 
-            for (int iCol = pivotRow; iCol < cols_; ++iCol) 
+            for (int i_col = pivot_row; i_col < cols_; ++i_col) 
             {
-                data_[iRow][iCol] -= factor * data_[pivotRow][iCol];
+                data_[i_row][i_col] -= factor * data_[pivot_row][i_col];
             }
         }
     }

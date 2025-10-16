@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cstdlib> // size_t
-#include <algorithm> // fill, copy
-#include <utility> // move
+#include <cstdlib> 
+#include <algorithm> 
+#include <utility> 
 
 
-#include "proxyrow.hpp" // ProxyRow
+#include "proxyrow.hpp" 
 
 namespace matrix
 {
