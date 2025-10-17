@@ -13,75 +13,57 @@ namespace matrix
 namespace detail
 {
 
+template <typename ElemT> 
+void construct(ElemT *p, const ElemT &rhs) { new (p) ElemT(rhs); }
+
+
 template<class ElemT>
 class Buffer
 {
-private:
-    ElemT* data_;
-    size_t size_;
-    size_t cols_;
+public:
+    ElemT* data_ = nullptr;
+    size_t size_ = 0;
+    size_t used_ = 0;
 
 public:
-    Buffer(size_t rows, size_t cols, const ElemT& value) : data_(new ElemT[rows * cols]), size_(rows * cols), cols_(cols)
-    {
-        std::fill(data_, data_ + size_, value);
-    }
-   
-    Buffer(size_t dim, const ElemT& value) : data_(new ElemT[dim * dim]), size_(dim * dim), cols_(dim)
-    {
-        std::fill(data_, data_ + size_, value);
-    }
+    Buffer(size_t size = 0) : data_((size = 0) ? nullptr : static_cast<ElemT*>(::operator new(sizeof(ElemT) * size))), size_(size){}
 
-    Buffer(const Buffer& other) : data_(new ElemT[other.size_]), size_(other.size_), cols_(other.cols_)
+    Buffer(const Buffer& ) = delete;
+
+    Buffer(Buffer&& other) : Buffer()
     {
-        std::copy(other.data_, other.data_ + size_, data_);
+        swap(other);
     }
 
-    Buffer& operator=(const Buffer& other)
+    Buffer& operator=(const Buffer& other) = delete;
+
+    void swap(Buffer& rhs) 
     {
-        if (this == &other)
-            return *this;
-
-        delete[] data_;
-        
-        size_ = other.size_;
-        cols_ = other.cols_;
-
-        std::copy(other.data_, other.data_ + size_, data_);
+        std::swap(data_, rhs.data_);
+        std::swap(size_, rhs.size_);
+        std::swap(size_, rhs.used_);
     }
 
-    Buffer(Buffer&& other) noexcept : data_(std::move(other.data_)), size_(other.size_), cols_(other.cols_)
+    Buffer& operator=(Buffer& other)
     {
-        other.data_ = nullptr;
-    }
+        Buffer moved(std::move(other));
 
-    Buffer& operator=(Buffer&& other) noexcept
-    {
-        if (this == &other)
-            return *this;
+        swap(moved);
 
-        delete[] data_;
-
-        data_ = std::move(other.data_); 
-        size_ = other.size_;
-        cols_ = other.cols_;
-
-        other.data_ = nullptr;
+        return *this;
     }
 
     ~Buffer()
     {
-        delete[] data_;
-    }
-    
-    const ProxyRow<ElemT> operator[] (size_t index) const
-    {
-        return ProxyRow<ElemT>(data_ + index * cols_);
-    }
+        if (data_)
+        {
+            for (size_t i = 0; i < used_; ++i)
+            {
+                data_[i].~ElemT();
+            }
 
-    ProxyRow<ElemT> operator[] (size_t index)
-    {
-        return ProxyRow<ElemT>(data_ + index * cols_);
+            ::operator delete(data_);
+        }
     }
 };
 
