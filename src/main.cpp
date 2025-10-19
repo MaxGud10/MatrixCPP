@@ -2,16 +2,18 @@
 
 #include "matrix.hpp"
 
-int main() {
+int main() 
+{
     size_t matrix_degree = 0;
     
     std::cin >> matrix_degree;
-    if ((!std::cin.good()) || (matrix_degree <= 0)) {
+    if ((!std::cin.good()) || (matrix_degree <= 0)) 
+    {
         std::cerr << "Error input" << std::endl;
         return -1;
     }
 
-    Matrix::matrix_t<double> matrix{matrix_degree, matrix_degree};
+    matrix::Matrix<double> matrix{matrix_degree, matrix_degree};
 
     std::cin >> matrix;
 

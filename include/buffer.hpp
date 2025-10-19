@@ -1,73 +1,76 @@
 #pragma once
+#include <algorithm>
+#include <utility>
 
-#include <cstdlib> 
-#include <algorithm> 
-#include <utility> 
-
-
-#include "proxyrow.hpp" 
-
-namespace matrix
+namespace matrix 
 {
-
-namespace detail
+//===================================================================================================
+template <typename ElemT> 
+void Constructor(ElemT* ptr, const ElemT& value) 
 {
+    new (ptr) ElemT{value};
+}
 
 template <typename ElemT> 
-void construct(ElemT *p, const ElemT &rhs) { new (p) ElemT(rhs); }
-
-
-template<class ElemT>
-class Buffer
+void Destructor(ElemT* ptr) 
 {
-public:
-    ElemT* data_ = nullptr;
-    size_t size_ = 0;
+    ptr->~ElemT();
+}
+
+template <typename Iterator> 
+void Destructor(Iterator begin, Iterator end) 
+{
+    while (begin != end) 
+    {
+        Destructor(&(*begin));
+        ++begin;
+    }
+}
+//===================================================================================================
+template <typename ElemT> class Buffer 
+{
+protected:
+    ElemT* buf_  = nullptr;
+    size_t rows_ = 0;
+    size_t cols_ = 0;
     size_t used_ = 0;
+//===================================================================================================
+protected:
+    Buffer(size_t rows, size_t cols): 
+    buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols) {}
+    
+    Buffer& operator=(const Buffer& other_buf) = delete;
+    Buffer(const Buffer& other_buf)            = delete;
 
-public:
-    Buffer(size_t size = 0) : data_((size = 0) ? nullptr : static_cast<ElemT*>(::operator new(sizeof(ElemT) * size))), size_(size){}
-
-    Buffer(const Buffer& ) = delete;
-
-    Buffer(Buffer&& other) : Buffer()
+    Buffer(Buffer&& other_buf) noexcept: buf_ {other_buf.buf_},
+                                                           rows_{other_buf.rows_},
+                                                           cols_{other_buf.cols_},
+                                                           used_{other_buf.used_} 
     {
-        swap(other);
+        other_buf.buf_  = nullptr;                                                           
+        other_buf.rows_ = 0;
+        other_buf.cols_ = 0;
+        other_buf.used_ = 0;
     }
 
-    Buffer& operator=(const Buffer& other) = delete;
-
-    void swap(Buffer& rhs) 
+    Buffer& operator=(Buffer&& other_buf) 
     {
-        std::swap(data_, rhs.data_);
-        std::swap(size_, rhs.size_);
-        std::swap(size_, rhs.used_);
-    }
+        if (this == &other_buf)
+            return *this; 
 
-    Buffer& operator=(Buffer& other)
-    {
-        Buffer moved(std::move(other));
-
-        swap(moved);
+        std::swap(buf_,  other_buf.buf_ );
+        std::swap(rows_, other_buf.rows_);
+        std::swap(cols_, other_buf.cols_);
+        std::swap(used_, other_buf.used_);
 
         return *this;
     }
 
-    ~Buffer()
+    ~Buffer() 
     {
-        if (data_)
-        {
-            for (size_t i = 0; i < used_; ++i)
-            {
-                data_[i].~ElemT();
-            }
-
-            ::operator delete(data_);
-        }
+        Destructor(buf_, buf_ + used_);
+        ::operator delete(buf_);
     }
 };
 
-} // namespace detail
-
 } // namespace matrix
-

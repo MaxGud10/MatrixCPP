@@ -2,174 +2,296 @@
 
 #include <iostream>
 #include <cmath>
+#include <cassert>
 #include <algorithm>
 #include <type_traits>
 
 #include "buffer.hpp"
-#include "proxyrow.hpp"
+#include "double_compare.hpp" 
+
 
 namespace matrix 
 {
 
-template<typename ElemT>
-class Matrix
+template <typename ElemT>
+class Matrix final : private Buffer<ElemT> // TODO :
 {
+    using Buffer<ElemT>::buf_ ;
+    using Buffer<ElemT>::rows_;
+    using Buffer<ElemT>::cols_;
+    using Buffer<ElemT>::used_;
+//===================================================================================================
 private:
-    detail::Buffer<ElemT> data_;
-    size_t rows_;
-    size_t cols_;
+    struct ProxyRow 
+    {
+        ElemT *row;
 
+        const ElemT& operator[](size_t n) const { return row[n]; }
+              ElemT& operator[](size_t n)       { return row[n]; }
+    };
+//===================================================================================================
 public:
-    Matrix(size_t rows, size_t cols                    ) : rows_(rows), cols_(cols), data_(rows, cols, ElemT{}) {}
-    Matrix(size_t rows, size_t cols, const ElemT& value) : rows_(rows), cols_(cols), data_(rows, cols, value)   {}
-    Matrix(size_t dim                                  ) : rows_(dim), cols_(dim),   data_(dim, dim, ElemT{})   {}
-    Matrix(size_t dim, const ElemT& value              ) : rows_(dim), cols_(dim),   data_(dim, dim, value)     {}
+    size_t get_used() const  { return used_; }
+    size_t get_rows() const  { return rows_; }
+    size_t get_cols() const  { return cols_; }
 
-    template<typename FromT>
-    Matrix(const Matrix<FromT>& other) : rows_(other.get_rows()), cols_(other.get_cols()), data_(other.get_rows(), other.get_cols())
+    ElemT multiply_diag() const 
     {
-        for (size_t i = 0; i < rows_; i++)
-        {
-            for (size_t j = 0; j < cols_; j++)
-            {
-                data_[i][j] = static_cast<ElemT>(other[i][j]);
-            }
-        }
-    }
+        ElemT result = 1;
 
-    detail::ProxyRow<ElemT> operator[](size_t index)
-    {
-        return detail::ProxyRow<ElemT>(data_[index]);
-    }
-
-    const detail::ProxyRow<ElemT> operator[](size_t index) const
-    {
-        return detail::ProxyRow<ElemT>(data_[index]);
-    }
-
-    size_t get_rows() const { return rows_; }
-    size_t get_cols() const { return cols_; }
-
-    double det()     const
-    {
-        if (rows_ != cols_)
-        {
-            std::cerr << "can't count determinant!";
-
-            return 0;
-        }
-
-        #ifdef DEBUG 
-            dump();
-        #endif
-
-        size_t         swap_count  = 0;
-        Matrix<double> matrix_copy = *this;
+        for (size_t i = 0; i < rows_; ++i) 
+            result *= buf_[i * cols_ + i];
         
-        if (!matrix_copy.gaussian_elimination(swap_count))
-        {
-            return 0;
-        }
-
-        #ifdef DEBUG
-            matrix_copy.dump();
-        #endif
-
-        double det = 1;
-
-        for (size_t i = 0; i < cols_; ++i)
-        {
-            det *= matrix_copy[i][i];
-        }
-
-        return (swap_count % 2 == 0) ? det : -det;
+        return result;
     }
 
-    bool gaussian_elimination(size_t& swap_count)
+    ElemT trace() const 
     {
-        for (size_t i_row = 0; i_row < rows_; ++i_row)
-        {
-            size_t pivot_row = find_pivot_row(i_row);
+        ElemT result = 0;
 
-            if (data_[pivot_row][i_row] == 0)
-            {
-                return false;
-            }
+        for (size_t i = 0; i < rows_; ++i) 
+            result += buf_[i * cols_ + i];
 
-            if (pivot_row != i_row)
-            {
-                swap_rows(i_row, pivot_row);
-                swap_count++;
-            }
-
-            eliminate_column(i_row);
-            //#ifdef DEBUG
-                dump();
-            //#endif
-        }
-
-        return true; 
+        return result;
     }
 
-    void dump() const
+    ProxyRow operator[](size_t n) const 
     {
-        for (size_t row = 0; row < rows_; ++row)
+        return ProxyRow{buf_ + n * cols_};
+    }
+
+    ElemT get_det_by_gauss_algorithm() const 
+    {
+        Matrix<double> double_matrix{*this}; 
+
+        double det = 1.0; 
+
+        for (size_t i = 0; i < rows_; ++i) 
         {
-            for (size_t col = 0; col < cols_; ++col)
+            size_t k = i;
+            for (size_t j = i + 1; j < rows_; ++j) 
             {
-                 std::cerr << data_[row][col] << " ";
+                if (std::abs(double_matrix[j][i]) > std::abs(double_matrix[k][i])) 
+                {
+                    k = j;
+                }
             }
+
+            if (Compare::is_equal(double_matrix[k][i], 0.0)) 
+                return 0.0;
             
-            std::cerr << "\n";
+
+            if (i != k) 
+            {
+                double_matrix.swap_rows(i, k);
+                det *= -1.0;
+            }
+
+            det *= double_matrix[i][i];
+
+            for (size_t j = i + 1; j < rows_; ++j) 
+            {
+                double coeff = double_matrix[j][i] / double_matrix[i][i];
+                for (size_t c = i; c < cols_; ++c) 
+                {
+                    double_matrix[j][c] -= coeff * double_matrix[i][c];
+                }
+            }
         }
 
-        std::cerr << "\n";
+        return std::is_floating_point_v<ElemT> ? det : std::round(det);
     }
-
-private:
-    void swap_rows(size_t row1, size_t row2)
+//===================================================================================================
+public:
+    void swap_rows(size_t first_row_number, size_t second_row_number) 
     {
-        if (row1 == row2)
+        if (first_row_number == second_row_number) 
             return;
 
-        for (size_t col = 0; col < cols_; ++col)
-        {
-            std::swap(data_[row1][col], data_[row2][col]);
-        }
+        ElemT* first_row  = buf_ + first_row_number  * cols_;
+        ElemT* second_row = buf_ + second_row_number * cols_;
+
+        for (size_t i = 0; i < cols_; ++i) 
+            std::swap(first_row[i], second_row[i]);
     }
 
-    size_t find_pivot_row(size_t col)
+    Matrix& negate() & 
     {
-        size_t max_row  = col;
-        ElemT  max_elem = std::abs(data_[col][col]);
-
-        for (size_t i_col = col + 1; i_col < cols_; i_col++)
+        for (size_t i = 0; i < rows_; ++i) 
         {
-            ElemT cur_elem = std::abs(data_[i_col][col]);
-
-            if (cur_elem > max_elem)
+            for (size_t j = 0; j < cols_; ++j) 
             {
-                max_elem = cur_elem; 
-                max_row  = i_col;
+                buf_[i * cols_ + j] *= -1;
             }
         }
 
-        return max_row;
+        return *this;
     }
 
-    void eliminate_column(size_t pivot_row) 
+    Matrix& transpose() & 
     {
-        for (size_t i_row = pivot_row + 1; i_row < rows_; ++i_row)
+        Matrix transposed{cols_, rows_};
+        for (size_t i = 0; i < rows_; ++i) 
         {
-            double factor = data_[i_row][pivot_row] / data_[pivot_row][pivot_row];
-
-            for (int i_col = pivot_row; i_col < cols_; ++i_col) 
+            for (size_t j = 0; j < cols_; ++j) 
             {
-                data_[i_row][i_col] -= factor * data_[pivot_row][i_col];
+                transposed.buf_[j * rows_ + i] = buf_[i * cols_ + j];
             }
         }
+
+        std::swap(buf_, transposed.buf_);
+        std::swap(rows_, cols_);
+        
+        return *this;
     }
+//===================================================================================================
+public:
+    // explicit Matrix(size_t rows, size_t cols): Buffer<ElemT>{rows, cols} {}
+
+    explicit Matrix(size_t rows, size_t cols) : Buffer<ElemT>{rows, cols} 
+    {
+        while (used_ < rows_ * cols_) 
+        {
+            Constructor(buf_ + used_, ElemT{}); 
+            ++used_;
+        }
+    }
+
+    template <typename Iterator>
+    Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Matrix<ElemT>{rows, cols} 
+    {
+        size_t i = 0;
+        for (auto it = start; it != end; ++it, ++i) 
+        {
+            buf_[i] = static_cast<ElemT>(*it);
+        }
+        // ElemT elem{};
+
+        // for (auto iter = start; iter != end; ++iter) 
+        // {
+        //     elem = static_cast<ElemT>(*iter);
+
+        //     Constructor(buf_ + used_, elem);
+        //     ++used_;
+        // }
+    }
+
+    template <typename AnotherElemT> explicit
+    Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    {
+        size_t current_row = 0;
+        size_t current_col = 0;
+
+        while (used_ < other.get_used()) 
+        {
+            Constructor(buf_ + used_, static_cast<ElemT>(other[current_row][current_col]));
+            ++used_;
+            if (current_row == rows_ - 1) 
+            {
+                current_row = 0;
+                ++current_col;
+            } 
+            else 
+                ++current_row;
+            
+        }
+    }
+    
+    Matrix(const Matrix& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    {
+        size_t current_row = 0;
+        size_t current_col = 0;
+
+        while (used_ < other.get_used()) 
+        {
+            Constructor(buf_ + used_, other[current_row][current_col]);
+            ++used_;
+            if (current_row == rows_ - 1) 
+            {
+                current_row = 0;
+                ++current_col;
+
+            } 
+            else
+                ++current_row;
+        }
+    }
+
+    Matrix& operator=(const Matrix& other) 
+    { 
+        Matrix<ElemT> tmp{other};
+        std::swap(*this, tmp);
+        
+        return *this;
+    }
+
+    Matrix(Matrix&& other)            noexcept = default;
+    Matrix& operator=(Matrix&& other) noexcept = default;
+
+    ~Matrix() = default;
 };
+//=================================================================================================
+template <typename ElemT>
+bool operator==(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs) 
+{
+    if ((lhs.get_cols() != rhs.get_cols()) || (lhs.get_rows() != rhs.get_rows()))
+        return false;
 
+    for (size_t i = 0; i < lhs.get_rows(); ++i) 
+    {
+        for (size_t j = 0; j < lhs.get_cols(); ++j) 
+        {
+            if (!Compare::is_equal(lhs[i][j], rhs[i][j]))
+                return false;
+        }
+    }
 
-} // namespace matrix 
+    return true;
+}
+
+template <typename ElemT>
+bool operator!=(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs) 
+{
+    return !(lhs == rhs);
+}
+
+template <typename ElemT> 
+std::istream& operator>>(std::istream& inp_stream, Matrix<ElemT>& matrix) 
+{
+    size_t rows = matrix.get_rows();
+    size_t cols = matrix.get_cols();
+
+    for (size_t i = 0; i < rows; ++i) 
+    {
+        for (size_t j = 0; j < cols; ++j) 
+        {
+            inp_stream >> matrix[i][j];
+        }
+    }
+
+    return inp_stream;
+}
+
+template <typename ElemT> 
+std::ostream& operator<<(std::ostream& out_stream, const Matrix<ElemT>& matrix) 
+{
+    size_t rows = matrix.get_rows();
+    size_t cols = matrix.get_cols();
+    
+    for (size_t i = 0; i < rows; ++i) 
+    {
+        for (size_t j = 0; j < cols; ++j) 
+        {
+            out_stream << matrix[i][j] << " ";
+        }
+
+        out_stream << std::endl;
+    }
+
+    out_stream << std::endl;
+
+    return out_stream;
+}
+
+} // namespace Matrix 
+

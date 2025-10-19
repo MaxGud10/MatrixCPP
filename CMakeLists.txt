@@ -1,31 +1,42 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.11)
 project(Matrix)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(cmake/CompileFlags.cmake)
-
 find_package(GTest REQUIRED)
-
-add_executable(matrix main.cpp)
-
-target_include_directories(matrix PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-)
-
-add_executable(tests tests/src/test_matrix.cpp tests/src/test_buffer.cpp tests/main.cpp)
-
-target_include_directories(tests PRIVATE
-	${CMAKE_SOURCE_DIR}/tests/utils/include
-	${CMAKE_SOURCE_DIR}/include
-	${CMAKE_SOURCE_DIR}/include/detail
-)
-
-target_link_libraries(tests
-    GTest::gtest 
-    GTest::gtest_main
-)
-
 enable_testing()
-add_test(NAME UnitTests COMMAND tests)
+
+add_executable(matrix)
+
+target_include_directories(matrix PUBLIC ${GTEST_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/include)
+
+target_sources(matrix PRIVATE
+    src/double_compare.cpp
+    src/main.cpp
+)
+
+target_compile_options(matrix PRIVATE 
+    $<$<CONFIG:DEBUG>:
+        -Wall
+        -Wextra
+        -Wpedantic
+        -g
+        -O0
+        -DDEBUG
+        -Wmissing-declarations
+        -Wcast-align
+        -Wunused
+        -Wshadow
+        -Wsign-conversion
+        -fsanitize=address
+        -fsanitize=undefined>
+)
+
+add_subdirectory(tests)
+
+target_compile_features(matrix PUBLIC cxx_std_20)
+
+target_link_libraries(matrix PRIVATE
+    $<$<CONFIG:Debug>:
+        -fsanitize=address
+        -fsanitize=undefined>
+    ${GTEST_BOTH_LIBRARIES}
+)
