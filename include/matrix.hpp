@@ -160,20 +160,20 @@ public:
     template <typename Iterator>
     Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Matrix<ElemT>{rows, cols} 
     {
-        size_t i = 0;
-        for (auto it = start; it != end; ++it, ++i) 
-        {
-            buf_[i] = static_cast<ElemT>(*it);
-        }
-        // ElemT elem{};
-
-        // for (auto iter = start; iter != end; ++iter) 
+        // size_t i = 0;
+        // for (auto it = start; it != end; ++it, ++i) 
         // {
-        //     elem = static_cast<ElemT>(*iter);
-
-        //     Constructor(buf_ + used_, elem);
-        //     ++used_;
+        //     buf_[i] = static_cast<ElemT>(*it);
         // }
+        ElemT elem{};
+
+        for (auto iter = start; iter != end; ++iter) 
+        {
+            elem = static_cast<ElemT>(*iter);
+
+            Constructor(buf_ + used_, elem);
+            ++used_;
+        }
     }
 
     template <typename AnotherElemT> explicit
