@@ -20,7 +20,8 @@ class Matrix final : private Buffer<ElemT> // TODO :
     using Buffer<ElemT>::rows_;
     using Buffer<ElemT>::cols_;
     using Buffer<ElemT>::used_;
-//===================================================================================================
+
+
 private:
     struct ProxyRow 
     {
@@ -29,7 +30,8 @@ private:
         const ElemT& operator[](size_t n) const { return row[n]; }
               ElemT& operator[](size_t n)       { return row[n]; }
     };
-//===================================================================================================
+
+
 public:
     size_t get_used() const  { return used_; }
     size_t get_rows() const  { return rows_; }
@@ -101,6 +103,7 @@ public:
 
         return std::is_floating_point_v<ElemT> ? det : std::round(det);
     }
+
 //===================================================================================================
 public:
     void swap_rows(size_t first_row_number, size_t second_row_number) 
@@ -144,6 +147,7 @@ public:
         
         return *this;
     }
+
 //===================================================================================================
 public:
     // explicit Matrix(size_t rows, size_t cols): Buffer<ElemT>{rows, cols} {}
@@ -176,8 +180,8 @@ public:
         }
     }
 
-    template <typename AnotherElemT> explicit
-    Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    template <typename AnotherElemT> 
+    explicit Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
     {
         size_t current_row = 0;
         size_t current_col = 0;
@@ -230,6 +234,9 @@ public:
 
     ~Matrix() = default;
 };
+
+
+
 //=================================================================================================
 template <typename ElemT>
 bool operator==(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs) 
@@ -293,5 +300,4 @@ std::ostream& operator<<(std::ostream& out_stream, const Matrix<ElemT>& matrix)
     return out_stream;
 }
 
-} // namespace Matrix 
-
+} // namespace matrix 

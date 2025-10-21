@@ -4,11 +4,14 @@
 
 namespace matrix 
 {
-//===================================================================================================
+
+
+    
 template <typename ElemT> 
 void Constructor(ElemT* ptr, const ElemT& value) 
 {
-    new (ptr) ElemT{value};
+    std::construct_at(ptr, value);
+    // new (ptr) ElemT{value};
 }
 
 template <typename ElemT> 
@@ -26,7 +29,8 @@ void Destructor(Iterator begin, Iterator end)
         ++begin;
     }
 }
-//===================================================================================================
+
+
 template <typename ElemT> class Buffer 
 {
 protected:
@@ -34,10 +38,17 @@ protected:
     size_t rows_ = 0;
     size_t cols_ = 0;
     size_t used_ = 0;
-//===================================================================================================
+
 protected:
-    Buffer(size_t rows, size_t cols): 
-    buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols) {}
+    // Buffer(size_t rows, size_t cols): 
+    // buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols) {}
+
+    Buffer(size_t rows, size_t cols)
+    : buf_{ rows * cols ? static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols)) : nullptr }
+    , rows_{rows}
+    , cols_{cols}
+    , used_{0}
+    {}
     
     Buffer& operator=(const Buffer& other_buf) = delete;
     Buffer(const Buffer& other_buf)            = delete;
