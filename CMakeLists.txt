@@ -32,6 +32,11 @@ target_compile_options(matrix PRIVATE
 
 add_subdirectory(tests)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(unit_tests PRIVATE -g -O0 -fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
+  target_link_options(unit_tests    PRIVATE -fsanitize=address -fsanitize=undefined)
+endif()
+
 target_compile_features(matrix PUBLIC cxx_std_20)
 
 target_link_libraries(matrix PRIVATE

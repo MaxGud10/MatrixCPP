@@ -154,80 +154,150 @@ public:
 
     explicit Matrix(size_t rows, size_t cols) : Buffer<ElemT>{rows, cols} 
     {
-        while (used_ < rows_ * cols_) 
-        {
-            Constructor(buf_ + used_, ElemT{}); 
+        while (used_ < rows_ * cols_) {
+            ConstructDefault<ElemT>(buf_ + used_); // чистая default-конструкция
             ++used_;
         }
+        // while (used_ < rows_ * cols_) 
+        // {
+        //     Constructor(buf_ + used_, ElemT{}); 
+        //     ++used_;
+        // }
     }
 
     template <typename Iterator>
-    Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Matrix<ElemT>{rows, cols} 
+    Matrix(size_t rows, size_t cols, Iterator first, Iterator last)
+        : Buffer<ElemT>(rows, cols)
     {
-        // size_t i = 0;
-        // for (auto it = start; it != end; ++it, ++i) 
-        // {
-        //     buf_[i] = static_cast<ElemT>(*it);
-        // }
-        ElemT elem{};
+        const size_t need = rows * cols;
+        size_t i = 0;
+        for (; i < need && first != last; ++i, ++first) {
+            ConstructCopy<ElemT>(this->buf_ + i, static_cast<const ElemT&>(*first));
+            this->used_++;
+        }
+        assert(i == need && first == last && "Диапазон не совпал с rows*cols");
+    }
 
-        for (auto iter = start; iter != end; ++iter) 
-        {
-            elem = static_cast<ElemT>(*iter);
 
-            Constructor(buf_ + used_, elem);
-            ++used_;
+    // template <typename Iterator>
+    // Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Matrix<ElemT>{rows, cols} 
+    // {
+    //     // size_t i = 0;
+    //     // for (auto it = start; it != end; ++it, ++i) 
+    //     // {
+    //     //     buf_[i] = static_cast<ElemT>(*it);
+    //     // }
+    //     ElemT elem{};
+
+    //     for (auto iter = start; iter != end; ++iter) 
+    //     {
+    //         elem = static_cast<ElemT>(*iter);
+
+    //         Constructor(buf_ + used_, elem);
+    //         ++used_;
+    //     }
+    // }
+
+
+    template <typename AnotherElemT>
+    explicit Matrix(const Matrix<AnotherElemT>& other)
+        : Buffer<ElemT>{other.get_rows(), other.get_cols()}
+    {
+        try {
+            const size_t total = rows_ * cols_;
+            for (size_t i = 0; i < total; ++i) {
+                const size_t r = i / cols_;
+                const size_t c = i % cols_;
+                ConstructCopy<ElemT>(buf_ + i, static_cast<ElemT>(other[r][c]));
+                ++used_;
+            }
+        } catch (...) {
+            std::destroy(buf_, buf_ + used_);
+            used_ = 0;
+            throw;
         }
     }
 
-    template <typename AnotherElemT> 
-    explicit Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
-    {
-        size_t current_row = 0;
-        size_t current_col = 0;
 
-        while (used_ < other.get_used()) 
-        {
-            Constructor(buf_ + used_, static_cast<ElemT>(other[current_row][current_col]));
-            ++used_;
-            if (current_row == rows_ - 1) 
-            {
-                current_row = 0;
-                ++current_col;
-            } 
-            else 
-                ++current_row;
+    // template <typename AnotherElemT> 
+    // explicit Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    // {
+    //     size_t current_row = 0;
+    //     size_t current_col = 0;
+
+    //     while (used_ < other.get_used()) 
+    //     {
+    //         Constructor(buf_ + used_, static_cast<ElemT>(other[current_row][current_col]));
+    //         ++used_;
+    //         if (current_row == rows_ - 1) 
+    //         {
+    //             current_row = 0;
+    //             ++current_col;
+    //         } 
+    //         else 
+    //             ++current_row;
             
-        }
-    }
-    
-    Matrix(const Matrix& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    //     }
+    // }
+
+    Matrix(const Matrix& other)
+        : Buffer<ElemT>{other.get_rows(), other.get_cols()}
     {
-        size_t current_row = 0;
-        size_t current_col = 0;
-
-        while (used_ < other.get_used()) 
-        {
-            Constructor(buf_ + used_, other[current_row][current_col]);
-            ++used_;
-            if (current_row == rows_ - 1) 
-            {
-                current_row = 0;
-                ++current_col;
-
-            } 
-            else
-                ++current_row;
+        try {
+            const size_t total = rows_ * cols_;
+            for (size_t i = 0; i < total; ++i) {
+                const size_t r = i / cols_;
+                const size_t c = i % cols_;
+                ConstructCopy<ElemT>(buf_ + i, other[r][c]); // ВАЖНО: copy по const&
+                ++used_;
+            }
+        } catch (...) {
+            std::destroy(buf_, buf_ + used_);
+            used_ = 0;
+            throw;
         }
     }
 
-    Matrix& operator=(const Matrix& other) 
-    { 
-        Matrix<ElemT> tmp{other};
-        std::swap(*this, tmp);
-        
+
+    
+    // Matrix(const Matrix& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    // {
+    //     size_t current_row = 0;
+    //     size_t current_col = 0;
+
+    //     while (used_ < other.get_used()) 
+    //     {
+    //         Constructor(buf_ + used_, other[current_row][current_col]);
+    //         ++used_;
+    //         if (current_row == rows_ - 1) 
+    //         {
+    //             current_row = 0;
+    //             ++current_col;
+
+    //         } 
+    //         else
+    //             ++current_row;
+    //     }
+    // }
+
+    Matrix& operator=(const Matrix& rhs) 
+    {
+        if (this == &rhs) 
+            return *this;
+
+        Matrix tmp(rhs);      
+        swap(tmp);        
+
         return *this;
     }
+
+    // Matrix& operator=(const Matrix& other) 
+    // { 
+    //     Matrix<ElemT> tmp{other};
+    //     std::swap(*this, tmp);
+        
+    //     return *this;
+    // }
 
     Matrix(Matrix&& other)            noexcept = default;
     Matrix& operator=(Matrix&& other) noexcept = default;
