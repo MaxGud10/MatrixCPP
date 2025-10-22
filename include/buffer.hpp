@@ -40,15 +40,9 @@ protected:
     size_t used_ = 0;
 
 protected:
-    // Buffer(size_t rows, size_t cols): 
-    // buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols) {}
+    Buffer(size_t rows, size_t cols): 
+    buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols), used_{0} {}
 
-    Buffer(size_t rows, size_t cols)
-    : buf_{ rows * cols ? static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols)) : nullptr }
-    , rows_{rows}
-    , cols_{cols}
-    , used_{0}
-    {}
     
     Buffer& operator=(const Buffer& other_buf) = delete;
     Buffer(const Buffer& other_buf)            = delete;

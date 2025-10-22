@@ -7,7 +7,7 @@
 struct Controllable 
 {
     static int control_;
-    int* resource_;
+           int* resource_;
 
     Controllable() : resource_(new int(42)) {}
 

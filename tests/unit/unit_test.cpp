@@ -440,37 +440,52 @@ TEST(MATRIX_FUNCTIONS, get_determinant_17) {
     ASSERT_TRUE(Compare::is_equal(matrix_for_test.get_det_by_gauss_algorithm(), 4556.0));
 }
 
-TEST(MATRIX_FUNCTIONS, copy_ctor) {
-    matrix::Matrix<Controllable> matrix1{3, 3};
+TEST(MATRIX_FUNCTIONS, copy_ctor_throws) {
+    int old = Controllable::control_;
+    Controllable::control_ = 1000;           
+    matrix::Matrix<Controllable> m1{3, 3};
 
-    Controllable::control_ = 0;
-    
-    bool exception_thrown = false;
+    Controllable::control_ = 0;               
+    EXPECT_THROW( ([&]{ matrix::Matrix<Controllable> tmp{m1}; }()), std::bad_alloc );
 
-    try {
-        matrix::Matrix<Controllable> matrix2{matrix1};
-    } catch (std::bad_alloc&) {
-        exception_thrown = true;
-    }
-
-    ASSERT_FALSE(exception_thrown);
+    EXPECT_EQ(m1.get_rows(), 3u);
+    EXPECT_EQ(m1.get_cols(), 3u);
+    Controllable::control_ = old;
 }
 
-TEST(MATRIX_FUNCTIONS, copy_assignment) {
-    matrix::Matrix<Controllable> matrix1{3, 3};
+TEST(MATRIX_FUNCTIONS, copy_ctor_nothrow) {
+    int old = Controllable::control_;
+    Controllable::control_ = 1000;
+    matrix::Matrix<Controllable> m1{3, 3};
 
-    Controllable::control_ = 0;
-
-    bool exception_thrown = false;
-    
-    try {
-        matrix::Matrix<Controllable> matrix2 = matrix1;
-    } catch (std::bad_alloc&) {
-        exception_thrown = true;
-    }
-
-    ASSERT_FALSE(exception_thrown); 
+    EXPECT_NO_THROW( ([&]{ matrix::Matrix<Controllable> tmp{m1}; }()) );
+    Controllable::control_ = old;
 }
+
+TEST(MATRIX_FUNCTIONS, copy_assignment_throws) {
+    int old = Controllable::control_;
+    Controllable::control_ = 1000;
+    matrix::Matrix<Controllable> m1{3, 3};
+    matrix::Matrix<Controllable> m2{3, 3};
+
+    Controllable::control_ = 0;               
+    EXPECT_THROW( (m2 = m1), std::bad_alloc );
+
+    EXPECT_EQ(m2.get_rows(), 3u);
+    EXPECT_EQ(m2.get_cols(), 3u);
+    Controllable::control_ = old;
+}
+
+TEST(MATRIX_FUNCTIONS, copy_assignment_nothrow) {
+    int old = Controllable::control_;
+    Controllable::control_ = 1000;
+    matrix::Matrix<Controllable> m1{3, 3};
+    matrix::Matrix<Controllable> m2{3, 3};
+
+    EXPECT_NO_THROW( (m2 = m1) );
+    Controllable::control_ = old;
+}
+
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
