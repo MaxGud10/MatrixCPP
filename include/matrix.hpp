@@ -5,6 +5,7 @@
 #include <cassert>
 #include <algorithm>
 #include <type_traits>
+#include <vector>
 
 #include "buffer.hpp"
 #include "double_compare.hpp" 
@@ -62,46 +63,80 @@ public:
         return ProxyRow{buf_ + n * cols_};
     }
 
-    ElemT get_det_by_gauss_algorithm() const 
+    ElemT get_det_by_gauss_algorithm() const
     {
-        Matrix<double> double_matrix{*this}; 
+        assert(rows_ == cols_);
 
-        double det = 1.0; 
+        const size_t size = rows_;
+        if (size == 0)
+            return static_cast<ElemT>(1);
 
-        for (size_t i = 0; i < rows_; ++i) 
+        std::vector<long double> data(size * size);
+        for (size_t idx = 0; idx < size * size; ++idx)
+            data[idx] = static_cast<long double>(buf_[idx]);
+
+        auto element = [&](size_t row, size_t col) -> long double& { return data[row * size + col]; };
+
+        
+        const long double zero_pivot_threshold     = 1e-12L;
+        const long double negligible_factor_thresh = 1e-18L;
+
+        int row_swap_parity = 0;
+
+        for (size_t pivot_col = 0; pivot_col < size; ++pivot_col)
         {
-            size_t k = i;
-            for (size_t j = i + 1; j < rows_; ++j) 
+            size_t      pivot_row       = pivot_col;
+            long double max_abs_in_col  = std::fabs(element(pivot_col, pivot_col));
+
+            for (size_t candidate_row = pivot_col + 1; candidate_row < size; ++candidate_row)
             {
-                if (std::abs(double_matrix[j][i]) > std::abs(double_matrix[k][i])) 
+                long double candidate_abs = std::fabs(element(candidate_row, pivot_col));
+                if (candidate_abs > max_abs_in_col)
                 {
-                    k = j;
+                    max_abs_in_col = candidate_abs;
+                    pivot_row      = candidate_row;
                 }
             }
 
-            if (Compare::is_equal(double_matrix[k][i], 0.0)) 
-                return 0.0;
-            
+            if (max_abs_in_col <= zero_pivot_threshold)
+                return static_cast<ElemT>(0);
 
-            if (i != k) 
+            if (pivot_row != pivot_col)
             {
-                double_matrix.swap_rows(i, k);
-                det *= -1.0;
+                for (size_t col = 0; col < size; ++col)
+                    std::swap(element(pivot_col, col), element(pivot_row, col));
+                    
+                row_swap_parity ^= 1;
             }
 
-            det *= double_matrix[i][i];
-
-            for (size_t j = i + 1; j < rows_; ++j) 
+            const long double pivot_value = element(pivot_col, pivot_col);
+            for (size_t row = pivot_col + 1; row < size; ++row)
             {
-                double coeff = double_matrix[j][i] / double_matrix[i][i];
-                for (size_t c = i; c < cols_; ++c) 
+                long double elimination_factor = element(row, pivot_col) / pivot_value;
+                if (std::fabs(elimination_factor) <= negligible_factor_thresh)
                 {
-                    double_matrix[j][c] -= coeff * double_matrix[i][c];
+                    element(row, pivot_col) = 0.0L;
+                    continue;
                 }
+
+                element(row, pivot_col) = 0.0L;
+                for (size_t col = pivot_col + 1; col < size; ++col)
+                    element(row, col) -= elimination_factor * element(pivot_col, col);
             }
         }
 
-        return std::is_floating_point_v<ElemT> ? det : std::round(det);
+        long double determinant = 1.0L;
+        for (size_t d = 0; d < size; ++d)
+            determinant *= element(d, d);
+
+        if (row_swap_parity)
+            determinant = -determinant;
+
+        if  (std::is_floating_point_v<ElemT>)
+            return static_cast<ElemT>(determinant);
+            
+        else
+            return static_cast<ElemT>(std::llround(determinant));
     }
 
 //===================================================================================================
