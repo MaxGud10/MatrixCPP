@@ -1,6 +1,8 @@
 #pragma once
 #include <algorithm>
 #include <utility>
+#include <cassert>
+#include <memory> 
 
 namespace matrix 
 {
@@ -10,6 +12,7 @@ namespace matrix
 template <typename ElemT> 
 void Constructor(ElemT* ptr, const ElemT& value) 
 {
+    assert(ptr != nullptr); 
     std::construct_at(ptr, value);
     // new (ptr) ElemT{value};
 }
@@ -17,21 +20,24 @@ void Constructor(ElemT* ptr, const ElemT& value)
 template <typename ElemT> 
 void Destructor(ElemT* ptr) 
 {
-    ptr->~ElemT();
+    assert(ptr != nullptr);
+    std::destroy_at(ptr);
+    // ptr->~ElemT();
 }
+
 
 template <typename Iterator> 
 void Destructor(Iterator begin, Iterator end) 
 {
-    while (begin != end) 
+    for (; begin != end; ++begin) 
     {
-        Destructor(&(*begin));
-        ++begin;
+        Destructor(std::addressof(*begin)); 
     }
 }
 
 
-template <typename ElemT> class Buffer 
+template <typename ElemT> 
+class Buffer 
 {
 protected:
     ElemT* buf_  = nullptr;
@@ -73,8 +79,15 @@ protected:
 
     ~Buffer() 
     {
-        Destructor(buf_, buf_ + used_);
-        ::operator delete(buf_);
+        if (buf_ != nullptr)
+        {
+            assert(used_ <= rows_ * cols_);  
+
+            Destructor(buf_, buf_ + used_);
+            ::operator delete(buf_);
+        }
+        else
+            assert(used_ == 0);
     }
 };
 

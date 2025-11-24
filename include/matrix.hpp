@@ -15,7 +15,7 @@ namespace matrix
 {
 
 template <typename ElemT>
-class Matrix final : private Buffer<ElemT> // TODO :
+class Matrix final : private Buffer<ElemT> 
 {
     using Buffer<ElemT>::buf_ ;
     using Buffer<ElemT>::rows_;
@@ -33,6 +33,14 @@ private:
     };
 
 
+    struct ConstProxyRow
+    {
+        const ElemT *row;
+
+        const ElemT& operator[](size_t n) const { return row[n]; }
+    };
+
+
 public:
     size_t get_used() const  { return used_; }
     size_t get_rows() const  { return rows_; }
@@ -40,6 +48,10 @@ public:
 
     ElemT multiply_diag() const 
     {
+        assert(rows_ == cols_        ); 
+        assert(buf_  != nullptr      );
+        assert(used_ == rows_ * cols_);
+
         ElemT result = 1;
 
         for (size_t i = 0; i < rows_; ++i) 
@@ -50,6 +62,10 @@ public:
 
     ElemT trace() const 
     {
+        assert(rows_ == cols_        );
+        assert(buf_  != nullptr      );
+        assert(used_ == rows_ * cols_);
+
         ElemT result = 0;
 
         for (size_t i = 0; i < rows_; ++i) 
@@ -58,9 +74,22 @@ public:
         return result;
     }
 
-    ProxyRow operator[](size_t n) const 
+    ProxyRow operator[](size_t n) 
     {
+        assert(n     <  rows_        );
+        assert(buf_  != nullptr      );
+        assert(used_ == rows_ * cols_);
+
         return ProxyRow{buf_ + n * cols_};
+    }
+
+    ConstProxyRow operator[](size_t n) const
+    {
+        assert(n     <  rows_        );
+        assert(buf_  != nullptr      );
+        assert(used_ == rows_ * cols_);
+
+        return ConstProxyRow{buf_ + n * cols_};
     }
 
     ElemT get_det_by_gauss_algorithm() const
@@ -143,6 +172,10 @@ public:
 public:
     void swap_rows(size_t first_row_number, size_t second_row_number) 
     {
+        assert(first_row_number  < rows_);
+        assert(second_row_number < rows_);
+        assert(buf_ != nullptr          );
+
         if (first_row_number == second_row_number) 
             return;
 
@@ -155,6 +188,9 @@ public:
 
     Matrix& negate() & 
     {
+        assert(buf_  != nullptr      );
+        assert(used_ == rows_ * cols_);
+
         for (size_t i = 0; i < rows_; ++i) 
         {
             for (size_t j = 0; j < cols_; ++j) 
@@ -168,6 +204,9 @@ public:
 
     Matrix& transpose() & 
     {
+        assert(buf_ != nullptr);
+        assert(used_ == rows_ * cols_);
+
         Matrix transposed{cols_, rows_};
         for (size_t i = 0; i < rows_; ++i) 
         {
@@ -185,8 +224,6 @@ public:
 
 //===================================================================================================
 public:
-    // explicit Matrix(size_t rows, size_t cols): Buffer<ElemT>{rows, cols} {}
-
     explicit Matrix(size_t rows, size_t cols) : Buffer<ElemT>{rows, cols} 
     {
         while (used_ < rows_ * cols_) 
@@ -199,56 +236,50 @@ public:
     template <typename Iterator>
     Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Buffer<ElemT>{rows, cols} 
     {
-        ElemT elem{};
-
         for (auto iter = start; iter != end; ++iter) 
         {
-            elem = static_cast<ElemT>(*iter);
-
-            Constructor(buf_ + used_, elem);
+            assert(used_ < rows_ * cols_);
+            Constructor(buf_ + used_, static_cast<ElemT>(*iter));
             ++used_;
         }
+
+        assert(used_ == rows_ * cols_);
     }
 
     template <typename AnotherElemT> 
     explicit Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
     {
-        size_t current_row = 0;
-        size_t current_col = 0;
+        assert(rows_ == other.get_rows());
+        assert(cols_ == other.get_cols());
 
-        while (used_ < other.get_used()) 
+        for (size_t i = 0; i < rows_; ++i)
         {
-            Constructor(buf_ + used_, static_cast<ElemT>(other[current_row][current_col]));
-            ++used_;
-            if (current_row == rows_ - 1) 
+            for (size_t j = 0; j < cols_; ++j)
             {
-                current_row = 0;
-                ++current_col;
-            } 
-            else 
-                ++current_row;
-            
+                Constructor(buf_ + (i * cols_ + j),
+                            static_cast<ElemT>(other[i][j]));
+                ++used_;
+            }
         }
+
+        assert(used_ == rows_ * cols_);
     }
     
     Matrix(const Matrix& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
     {
-        size_t current_row = 0;
-        size_t current_col = 0;
+        assert(rows_ == other.get_rows());
+        assert(cols_ == other.get_cols());
 
-        while (used_ < other.get_used()) 
+        for (size_t i = 0; i < rows_; ++i)
         {
-            Constructor(buf_ + used_, other[current_row][current_col]);
-            ++used_;
-            if (current_row == rows_ - 1) 
+            for (size_t j = 0; j < cols_; ++j)
             {
-                current_row = 0;
-                ++current_col;
-
-            } 
-            else
-                ++current_row;
+                Constructor(buf_ + (i * cols_ + j), other[i][j]);
+                ++used_;
+            }
         }
+
+        assert(used_ == rows_ * cols_);
     }
 
     Matrix& operator=(const Matrix& other) 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(Matrix)
+project(Matrix LANGUAGES CXX)
 
 find_package(GTest REQUIRED)
 enable_testing()
@@ -9,7 +9,6 @@ add_executable(matrix)
 target_include_directories(matrix PUBLIC ${GTEST_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/include)
 
 target_sources(matrix PRIVATE
-    src/double_compare.cpp
     src/main.cpp
 )
 

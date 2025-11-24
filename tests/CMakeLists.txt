@@ -7,7 +7,6 @@ find_package(GTest REQUIRED)
 add_executable(unit_tests)
 
 target_sources(unit_tests PRIVATE
-    ../src/double_compare.cpp
     unit/unit_test.cpp
 )
 
