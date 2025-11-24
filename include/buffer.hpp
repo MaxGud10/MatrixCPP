@@ -14,7 +14,6 @@ void Constructor(ElemT* ptr, const ElemT& value)
 {
     assert(ptr != nullptr); 
     std::construct_at(ptr, value);
-    // new (ptr) ElemT{value};
 }
 
 template <typename ElemT> 
@@ -22,7 +21,6 @@ void Destructor(ElemT* ptr)
 {
     assert(ptr != nullptr);
     std::destroy_at(ptr);
-    // ptr->~ElemT();
 }
 
 
