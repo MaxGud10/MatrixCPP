@@ -486,6 +486,45 @@ TEST(MATRIX_FUNCTIONS, copy_assignment_nothrow) {
     Controllable::control_ = old;
 }
 
+TEST(MATRIX_CONSTRUCTOR, iterator_range_too_short) {
+    std::vector<int> data{};
+    data.push_back(1);
+    data.push_back(2);
+    data.push_back(3); 
+
+    ASSERT_THROW(
+        (matrix::Matrix<int>{2, 2, data.begin(), data.end()}),
+        std::length_error
+    );
+}
+
+TEST(MATRIX_CONSTRUCTOR, iterator_range_too_long) {
+    std::vector<int> data{};
+    data.push_back(1);
+    data.push_back(2);
+    data.push_back(3);
+    data.push_back(4);
+    data.push_back(5); 
+
+    ASSERT_THROW(
+        (matrix::Matrix<int>{2, 2, data.begin(), data.end()}),
+        std::length_error
+    );
+}
+
+
+TEST(MATRIX_CONSTRUCTOR, iterator_range_exact_size) {
+    std::vector<int> data{};
+    data.push_back(1);
+    data.push_back(2);
+    data.push_back(3);
+    data.push_back(4);
+
+    ASSERT_NO_THROW(
+        (matrix::Matrix<int>{2, 2, data.begin(), data.end()})
+    );
+}
+
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);

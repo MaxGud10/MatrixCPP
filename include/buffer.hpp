@@ -43,7 +43,6 @@ protected:
     size_t cols_ = 0;
     size_t used_ = 0;
 
-protected:
     Buffer(size_t rows, size_t cols): 
     buf_{static_cast<ElemT*>(::operator new(sizeof(ElemT) * rows * cols))}, rows_{rows}, cols_(cols), used_{0} {}
 
@@ -51,10 +50,10 @@ protected:
     Buffer& operator=(const Buffer& other_buf) = delete;
     Buffer(const Buffer& other_buf)            = delete;
 
-    Buffer(Buffer&& other_buf) noexcept: buf_ {other_buf.buf_},
-                                                           rows_{other_buf.rows_},
-                                                           cols_{other_buf.cols_},
-                                                           used_{other_buf.used_} 
+    Buffer(Buffer&& other_buf) noexcept: buf_ {other_buf.buf_ },
+                                         rows_{other_buf.rows_},
+                                         cols_{other_buf.cols_},
+                                         used_{other_buf.used_} 
     {
         other_buf.buf_  = nullptr;                                                           
         other_buf.rows_ = 0;
