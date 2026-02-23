@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <type_traits>
 #include <vector>
+#include <stdexcept>
 
 #include "buffer.hpp"
 #include "double_compare.hpp" 
@@ -130,8 +131,25 @@ class Matrix final : private Buffer<ElemT>
         return static_cast<ElemT>(std::llround(determinant));
     }
 
+    template <typename Getter>
+    void construct_from_other_(size_t other_rows, size_t other_cols, Getter get_elem)
+    {
+        assert(rows_ == other_rows);
+        assert(cols_ == other_cols);
+
+        for (size_t i = 0; i < rows_; ++i)
+        {
+            for (size_t j = 0; j < cols_; ++j)
+            {
+                Constructor(buf_ + (i * cols_ + j), get_elem(i, j));
+                ++used_;
+            }
+        }
+
+        assert(used_ == rows_ * cols_);
+    }
+
 public:
-    size_t get_used() const  { return used_; }
     size_t get_rows() const  { return rows_; }
     size_t get_cols() const  { return cols_; }
 
@@ -216,83 +234,6 @@ public:
         return convert_gauss_det_(determinant, row_swap_parity);
     }
 
-
-    // ElemT get_det_by_gauss_algorithm() const
-    // {
-    //     assert(rows_ == cols_);
-
-    //     const size_t size = rows_;
-    //     if (size == 0)
-    //         return static_cast<ElemT>(1);
-
-    //     std::vector<long double> data(size * size);
-    //     for (size_t idx = 0; idx < size * size; ++idx)
-    //         data[idx] = static_cast<long double>(buf_[idx]);
-
-    //     auto element = [&](size_t row, size_t col) -> long double& { return data[row * size + col]; };
-
-        
-    //     const long double zero_pivot_threshold     = 1e-12L;
-    //     const long double negligible_factor_thresh = 1e-18L;
-
-    //     int row_swap_parity = 0;
-
-    //     for (size_t pivot_col = 0; pivot_col < size; ++pivot_col)
-    //     {
-    //         size_t      pivot_row       = pivot_col;
-    //         long double max_abs_in_col  = std::fabs(element(pivot_col, pivot_col));
-
-    //         for (size_t candidate_row = pivot_col + 1; candidate_row < size; ++candidate_row)
-    //         {
-    //             long double candidate_abs = std::fabs(element(candidate_row, pivot_col));
-    //             if (candidate_abs > max_abs_in_col)
-    //             {
-    //                 max_abs_in_col = candidate_abs;
-    //                 pivot_row      = candidate_row;
-    //             }
-    //         }
-
-    //         if (max_abs_in_col <= zero_pivot_threshold)
-    //             return static_cast<ElemT>(0);
-
-    //         if (pivot_row != pivot_col)
-    //         {
-    //             for (size_t col = 0; col < size; ++col)
-    //                 std::swap(element(pivot_col, col), element(pivot_row, col));
-                    
-    //             row_swap_parity ^= 1;
-    //         }
-
-    //         const long double pivot_value = element(pivot_col, pivot_col);
-    //         for (size_t row = pivot_col + 1; row < size; ++row)
-    //         {
-    //             long double elimination_factor = element(row, pivot_col) / pivot_value;
-    //             if (std::fabs(elimination_factor) <= negligible_factor_thresh)
-    //             {
-    //                 element(row, pivot_col) = 0.0L;
-    //                 continue;
-    //             }
-
-    //             element(row, pivot_col) = 0.0L;
-    //             for (size_t col = pivot_col + 1; col < size; ++col)
-    //                 element(row, col) -= elimination_factor * element(pivot_col, col);
-    //         }
-    //     }
-
-    //     long double determinant = 1.0L;
-    //     for (size_t d = 0; d < size; ++d)
-    //         determinant *= element(d, d);
-
-    //     if (row_swap_parity)
-    //         determinant = -determinant;
-
-    //     if  (std::is_floating_point_v<ElemT>)
-    //         return static_cast<ElemT>(determinant);
-            
-    //     else
-    //         return static_cast<ElemT>(std::llround(determinant));
-    // }
-
 //===================================================================================================
 public:
     void swap_rows(size_t first_row_number, size_t second_row_number) 
@@ -329,7 +270,7 @@ public:
 
     Matrix& transpose() & 
     {
-        assert(buf_ != nullptr);
+        assert(buf_ != nullptr       );
         assert(used_ == rows_ * cols_);
 
         Matrix transposed{cols_, rows_};
@@ -359,52 +300,43 @@ public:
     }
 
     template <typename Iterator>
-    Matrix(size_t rows, size_t cols, Iterator start, Iterator end): Buffer<ElemT>{rows, cols} 
+    Matrix(size_t rows, size_t cols, Iterator start, Iterator end) : Buffer<ElemT>{rows, cols} 
     {
-        for (auto iter = start; iter != end; ++iter) 
+        const size_t need = rows_ * cols_;
+
+        for (size_t k = 0; k < need; ++k)
         {
-            assert(used_ < rows_ * cols_);
-            Constructor(buf_ + used_, static_cast<ElemT>(*iter));
+            if (start == end)
+                throw std::length_error("Matrix: iterator range too short");
+
+            Constructor(buf_ + used_, static_cast<ElemT>(*start));
             ++used_;
+            ++start;
         }
 
-        assert(used_ == rows_ * cols_);
+        if (start != end)
+            throw std::length_error("Matrix: iterator range too long");
+
+        assert(used_ == need);
     }
 
     template <typename AnotherElemT> 
-    explicit Matrix(const Matrix<AnotherElemT>& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    explicit Matrix(const Matrix<AnotherElemT>& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()} 
     {
-        assert(rows_ == other.get_rows());
-        assert(cols_ == other.get_cols());
-
-        for (size_t i = 0; i < rows_; ++i)
+        construct_from_other_(other.get_rows(), other.get_cols(), 
+            [&](size_t i, size_t j)->ElemT
         {
-            for (size_t j = 0; j < cols_; ++j)
-            {
-                Constructor(buf_ + (i * cols_ + j),
-                            static_cast<ElemT>(other[i][j]));
-                ++used_;
-            }
-        }
-
-        assert(used_ == rows_ * cols_);
+            return static_cast<ElemT>(other[i][j]);
+        });
     }
     
-    Matrix(const Matrix& other): Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    Matrix(const Matrix& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()} 
     {
-        assert(rows_ == other.get_rows());
-        assert(cols_ == other.get_cols());
-
-        for (size_t i = 0; i < rows_; ++i)
+        construct_from_other_(other.get_rows(), other.get_cols(),
+            [&](size_t i, size_t j)->ElemT
         {
-            for (size_t j = 0; j < cols_; ++j)
-            {
-                Constructor(buf_ + (i * cols_ + j), other[i][j]);
-                ++used_;
-            }
-        }
-
-        assert(used_ == rows_ * cols_);
+            return other[i][j];
+        });
     }
 
     Matrix& operator=(const Matrix& other) 
