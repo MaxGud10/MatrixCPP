@@ -9,21 +9,21 @@
 #include <stdexcept>
 
 #include "buffer.hpp"
-#include "double_compare.hpp" 
+#include "double_compare.hpp"
 
 
-namespace matrix 
+namespace matrix
 {
 
 template <typename ElemT>
-class Matrix final : private Buffer<ElemT> 
+class Matrix final : private Buffer<ElemT>
 {
     using Buffer<ElemT>::buf_ ;
     using Buffer<ElemT>::rows_;
     using Buffer<ElemT>::cols_;
     using Buffer<ElemT>::used_;
 
-    struct ProxyRow 
+    struct ProxyRow
     {
         ElemT *row;
 
@@ -153,21 +153,41 @@ public:
     size_t get_rows() const  { return rows_; }
     size_t get_cols() const  { return cols_; }
 
-    ElemT multiply_diag() const 
+    Matrix operator*(const Matrix& rhs) const
     {
-        assert(rows_ == cols_        ); 
+        if (cols_ != rhs.rows_)
+            throw std::invalid_argument("Matrix multiply: incompatible dimensions");
+
+        Matrix result{rows_, rhs.cols_};
+
+        for (size_t i = 0; i < rows_; ++i)
+        {
+            for (size_t k = 0; k < cols_; ++k)
+            {
+                const auto a = buf_[i * cols_ + k];
+                for (size_t j = 0; j < rhs.cols_; ++j)
+                    result.buf_[i * rhs.cols_ + j] += a * rhs.buf_[k * rhs.cols_ + j];
+            }
+        }
+
+        return result;
+    }
+
+    ElemT multiply_diag() const
+    {
+        assert(rows_ == cols_        );
         assert(buf_  != nullptr      );
         assert(used_ == rows_ * cols_);
 
         ElemT result = 1;
 
-        for (size_t i = 0; i < rows_; ++i) 
+        for (size_t i = 0; i < rows_; ++i)
             result *= buf_[i * cols_ + i];
-        
+
         return result;
     }
 
-    ElemT trace() const 
+    ElemT trace() const
     {
         assert(rows_ == cols_        );
         assert(buf_  != nullptr      );
@@ -175,13 +195,13 @@ public:
 
         ElemT result = 0;
 
-        for (size_t i = 0; i < rows_; ++i) 
+        for (size_t i = 0; i < rows_; ++i)
             result += buf_[i * cols_ + i];
 
         return result;
     }
 
-    ProxyRow operator[](size_t n) 
+    ProxyRow operator[](size_t n)
     {
         assert(n     <  rows_        );
         assert(buf_  != nullptr      );
@@ -236,30 +256,30 @@ public:
 
 //===================================================================================================
 public:
-    void swap_rows(size_t first_row_number, size_t second_row_number) 
+    void swap_rows(size_t first_row_number, size_t second_row_number)
     {
         assert(first_row_number  < rows_);
         assert(second_row_number < rows_);
         assert(buf_ != nullptr          );
 
-        if (first_row_number == second_row_number) 
+        if (first_row_number == second_row_number)
             return;
 
         ElemT* first_row  = buf_ + first_row_number  * cols_;
         ElemT* second_row = buf_ + second_row_number * cols_;
 
-        for (size_t i = 0; i < cols_; ++i) 
+        for (size_t i = 0; i < cols_; ++i)
             std::swap(first_row[i], second_row[i]);
     }
 
-    Matrix& negate() & 
+    Matrix& negate() &
     {
         assert(buf_  != nullptr      );
         assert(used_ == rows_ * cols_);
 
-        for (size_t i = 0; i < rows_; ++i) 
+        for (size_t i = 0; i < rows_; ++i)
         {
-            for (size_t j = 0; j < cols_; ++j) 
+            for (size_t j = 0; j < cols_; ++j)
             {
                 buf_[i * cols_ + j] *= -1;
             }
@@ -268,15 +288,15 @@ public:
         return *this;
     }
 
-    Matrix& transpose() & 
+    Matrix& transpose() &
     {
         assert(buf_ != nullptr       );
         assert(used_ == rows_ * cols_);
 
         Matrix transposed{cols_, rows_};
-        for (size_t i = 0; i < rows_; ++i) 
+        for (size_t i = 0; i < rows_; ++i)
         {
-            for (size_t j = 0; j < cols_; ++j) 
+            for (size_t j = 0; j < cols_; ++j)
             {
                 transposed.buf_[j * rows_ + i] = buf_[i * cols_ + j];
             }
@@ -284,23 +304,23 @@ public:
 
         std::swap(buf_, transposed.buf_);
         std::swap(rows_, cols_);
-        
+
         return *this;
     }
 
 //===================================================================================================
 public:
-    explicit Matrix(size_t rows, size_t cols) : Buffer<ElemT>{rows, cols} 
+    explicit Matrix(size_t rows, size_t cols) : Buffer<ElemT>{rows, cols}
     {
-        while (used_ < rows_ * cols_) 
+        while (used_ < rows_ * cols_)
         {
-            Constructor(buf_ + used_, ElemT{}); 
+            Constructor(buf_ + used_, ElemT{});
             ++used_;
         }
     }
 
     template <typename Iterator>
-    Matrix(size_t rows, size_t cols, Iterator start, Iterator end) : Buffer<ElemT>{rows, cols} 
+    Matrix(size_t rows, size_t cols, Iterator start, Iterator end) : Buffer<ElemT>{rows, cols}
     {
         const size_t need = rows_ * cols_;
 
@@ -320,17 +340,17 @@ public:
         assert(used_ == need);
     }
 
-    template <typename AnotherElemT> 
-    explicit Matrix(const Matrix<AnotherElemT>& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+    template <typename AnotherElemT>
+    explicit Matrix(const Matrix<AnotherElemT>& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()}
     {
-        construct_from_other_(other.get_rows(), other.get_cols(), 
+        construct_from_other_(other.get_rows(), other.get_cols(),
             [&](size_t i, size_t j)->ElemT
         {
             return static_cast<ElemT>(other[i][j]);
         });
     }
-    
-    Matrix(const Matrix& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()} 
+
+    Matrix(const Matrix& other) : Buffer<ElemT>{other.get_rows(), other.get_cols()}
     {
         construct_from_other_(other.get_rows(), other.get_cols(),
             [&](size_t i, size_t j)->ElemT
@@ -339,11 +359,11 @@ public:
         });
     }
 
-    Matrix& operator=(const Matrix& other) 
-    { 
+    Matrix& operator=(const Matrix& other)
+    {
         Matrix<ElemT> tmp{other};
         std::swap(*this, tmp);
-        
+
         return *this;
     }
 
@@ -357,14 +377,14 @@ public:
 
 //=================================================================================================
 template <typename ElemT>
-bool operator==(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs) 
+bool operator==(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs)
 {
     if ((lhs.get_cols() != rhs.get_cols()) || (lhs.get_rows() != rhs.get_rows()))
         return false;
 
-    for (size_t i = 0; i < lhs.get_rows(); ++i) 
+    for (size_t i = 0; i < lhs.get_rows(); ++i)
     {
-        for (size_t j = 0; j < lhs.get_cols(); ++j) 
+        for (size_t j = 0; j < lhs.get_cols(); ++j)
         {
             if (!Compare::is_equal(lhs[i][j], rhs[i][j]))
                 return false;
@@ -375,20 +395,20 @@ bool operator==(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs)
 }
 
 template <typename ElemT>
-bool operator!=(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs) 
+bool operator!=(const Matrix<ElemT>& lhs, const Matrix<ElemT>& rhs)
 {
     return !(lhs == rhs);
 }
 
-template <typename ElemT> 
-std::istream& operator>>(std::istream& inp_stream, Matrix<ElemT>& matrix) 
+template <typename ElemT>
+std::istream& operator>>(std::istream& inp_stream, Matrix<ElemT>& matrix)
 {
     size_t rows = matrix.get_rows();
     size_t cols = matrix.get_cols();
 
-    for (size_t i = 0; i < rows; ++i) 
+    for (size_t i = 0; i < rows; ++i)
     {
-        for (size_t j = 0; j < cols; ++j) 
+        for (size_t j = 0; j < cols; ++j)
         {
             inp_stream >> matrix[i][j];
         }
@@ -397,15 +417,15 @@ std::istream& operator>>(std::istream& inp_stream, Matrix<ElemT>& matrix)
     return inp_stream;
 }
 
-template <typename ElemT> 
-std::ostream& operator<<(std::ostream& out_stream, const Matrix<ElemT>& matrix) 
+template <typename ElemT>
+std::ostream& operator<<(std::ostream& out_stream, const Matrix<ElemT>& matrix)
 {
     size_t rows = matrix.get_rows();
     size_t cols = matrix.get_cols();
-    
-    for (size_t i = 0; i < rows; ++i) 
+
+    for (size_t i = 0; i < rows; ++i)
     {
-        for (size_t j = 0; j < cols; ++j) 
+        for (size_t j = 0; j < cols; ++j)
         {
             out_stream << matrix[i][j] << " ";
         }
@@ -418,4 +438,4 @@ std::ostream& operator<<(std::ostream& out_stream, const Matrix<ElemT>& matrix)
     return out_stream;
 }
 
-} // namespace matrix 
+} // namespace matrix
