@@ -23,7 +23,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build python3 python3-pip dos2unix libgtest-dev
 
-      
       - name: Build & install GoogleTest
         run: |
           sudo cmake -S /usr/src/googletest -B /usr/src/googletest/build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -38,7 +37,6 @@ jobs:
       - name: Run unit tests (Release)
         run: ctest --test-dir build-release --output-on-failure
 
-      
       - name: Configure (Debug, ASan/UBSan)
         run: cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
@@ -48,17 +46,28 @@ jobs:
       - name: Run unit tests (Debug, ASan/UBSan)
         run: ctest --test-dir build-debug --output-on-failure
 
-      
-      - name: Prepare E2E script
+      - name: Prepare E2E determinant script
         run: |
-          dos2unix tests/e2e/end_to_end_test.sh || true
-          chmod +x tests/e2e/end_to_end_test.sh
+          dos2unix tests/e2e_det/end_to_end_test.sh || true
+          chmod +x tests/e2e_det/end_to_end_test.sh
 
-      - name: Run E2E tests (use Release binary)
-        working-directory: tests/e2e
+      - name: Run E2E determinant tests (use Release binary)
+        working-directory: tests/e2e_det
         shell: bash
         env:
           MATRIX_BIN: ${{ github.workspace }}/build-release/matrix
         run: |
-          # если скрипт ожидает бинарник в build/, а не в переменной — можно экспортировать/подменить путь тут
           ./end_to_end_test.sh
+
+      - name: Prepare E2E chain script
+        run: |
+          dos2unix tests/e2e_chain/end_to_end_test_chain.sh || true
+          chmod +x tests/e2e_chain/end_to_end_test_chain.sh
+
+      - name: Run E2E chain tests (use Release binary)
+        working-directory: tests/e2e_chain
+        shell: bash
+        env:
+          MATRIX_CHAIN_BIN: ${{ github.workspace }}/build-release/matrix_chain
+        run: |
+          ./end_to_end_test_chain.sh
