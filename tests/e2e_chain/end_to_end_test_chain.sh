@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BINARY="../../build/matrix_chain"
+BINARY="${MATRIX_CHAIN_BIN:-../../build/matrix_chain}"
 
 if [[ ! -x "$BINARY" ]]; then
   echo "Ошибка: не найден исполняемый файл $BINARY"
