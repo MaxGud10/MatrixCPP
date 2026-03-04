@@ -1,10 +1,10 @@
 #pragma once
 
-#include <cstdint>
-#include <vector>
-#include <stdexcept>
 #include <algorithm>
+#include <cstdint>
 #include <limits>
+#include <stdexcept>
+#include <vector>
 
 #include "matrix.hpp"
 
@@ -15,212 +15,264 @@ template <typename T>
 class MatrixChain
 {
 public:
-    using MatrixT = Matrix<T>;
+    using MatrixType = Matrix<T>;
 
     MatrixChain() = default;
 
-    void add_matrix(MatrixT m)
+    void add_matrix(MatrixType matrix_to_add)
     {
-        if (matrices_.empty())
+        if (dimension_chain_.empty())
         {
-            dims_.push_back(m.get_rows());
-            dims_.push_back(m.get_cols());
+            dimension_chain_.push_back(matrix_to_add.get_rows());
+            dimension_chain_.push_back(matrix_to_add.get_cols());
         }
-
         else
         {
-            if (dims_.back() != m.get_rows())
+            const std::size_t expected_rows = dimension_chain_.back();
+            if (expected_rows != matrix_to_add.get_rows())
                 throw std::invalid_argument("MatrixChain: incompatible matrix dimensions in chain");
-            dims_.push_back(m.get_cols());
+
+            dimension_chain_.push_back(matrix_to_add.get_cols());
         }
-        matrices_.push_back(std::move(m));
-        dirty_ = true;
+
+        matrix_storage_.push_back(std::move(matrix_to_add));
+        dp_cache_is_dirty_ = true;
     }
 
-    void add_dims(std::size_t rows, std::size_t cols)
+    void add_dimensions(std::size_t rows_count, std::size_t cols_count)
     {
-        if (dims_.empty())
+        if (dimension_chain_.empty())
         {
-            dims_.push_back(rows);
-            dims_.push_back(cols);
+            dimension_chain_.push_back(rows_count);
+            dimension_chain_.push_back(cols_count);
         }
         else
         {
-            if (dims_.back() != rows)
+            const std::size_t expected_rows = dimension_chain_.back();
+            if (expected_rows != rows_count)
                 throw std::invalid_argument("MatrixChain: incompatible dimensions in chain");
-            dims_.push_back(cols);
+
+            dimension_chain_.push_back(cols_count);
         }
-        dirty_ = true;
+
+        dp_cache_is_dirty_ = true;
     }
 
-    std::size_t matrix_count() const noexcept
+    std::size_t get_matrix_count() const noexcept
     {
-        return dims_.size() > 0 ? dims_.size() - 1 : 0;
+        return dimension_chain_.empty() ? 0 : (dimension_chain_.size() - 1);
     }
 
-    std::uint64_t optimal_cost()
+    std::uint64_t get_optimal_multiplication_cost()
     {
-        ensure_dp_();
-        const auto n = matrix_count();
+        build_dp_cache_if_needed_();
 
-        return (n <= 1) ? 0ULL : dp_[0][n - 1].cost;
-    }
-
-    std::uint64_t naive_cost() const
-    {
-        const auto n = matrix_count();
-        if (n <= 1)
+        const std::size_t matrix_count = get_matrix_count();
+        if (matrix_count <= 1)
             return 0ULL;
 
-        std::uint64_t cost  = 0;
-        std::size_t   cur_r = dims_[0];
-        std::size_t   cur_c = dims_[1];
+        return dp_table_[0][matrix_count - 1].minimal_cost;
+    }
 
-        for (std::size_t i = 1; i < n; ++i)
+    std::uint64_t get_naive_multiplication_cost() const
+    {
+        const std::size_t matrix_count = get_matrix_count();
+        if (matrix_count <= 1)
+            return 0ULL;
+
+        std::uint64_t total_cost = 0;
+
+        const std::size_t current_result_rows = dimension_chain_[0];
+        std::size_t current_result_cols = dimension_chain_[1];
+
+        for (std::size_t next_matrix_index = 1; next_matrix_index < matrix_count; ++next_matrix_index)
         {
-            const std::size_t next_c = dims_[i + 1];
-            cost  = add_cost_(cost, cur_r, cur_c, next_c);
-            cur_c = next_c;
+            const std::size_t next_result_cols = dimension_chain_[next_matrix_index + 1];
+
+            total_cost = add_multiplication_cost_checked_(
+                total_cost,
+                current_result_rows,
+                current_result_cols,
+                next_result_cols
+            );
+
+            current_result_cols = next_result_cols;
         }
 
-        return cost;
+        return total_cost;
     }
 
-    std::vector<int> optimal_order()
+    std::vector<int> get_optimal_operation_order()
     {
-        ensure_dp_();
-        const auto n = matrix_count();
-        if (n <= 1)
+        build_dp_cache_if_needed_();
+
+        const std::size_t matrix_count = get_matrix_count();
+        if (matrix_count <= 1)
             return {};
-        return dp_[0][n - 1].order;
+
+        return dp_table_[0][matrix_count - 1].operation_order;
     }
 
-    double factor()
+    double get_improvement_factor()
     {
-        const auto opt = optimal_cost();
-        const auto nai = naive_cost();
-        if (opt == 0)
+        const std::uint64_t optimal_cost = get_optimal_multiplication_cost();
+        const std::uint64_t naive_cost = get_naive_multiplication_cost();
+
+        if (optimal_cost == 0)
             return 1.0;
-        return static_cast<double>(nai) / static_cast<double>(opt);
+
+        return static_cast<double>(naive_cost) / static_cast<double>(optimal_cost);
     }
 
-    MatrixT multiply_optimal()
+    MatrixType multiply_in_optimal_order()
     {
-        if (matrices_.empty())
+        if (matrix_storage_.empty())
             throw std::logic_error("MatrixChain: no matrices stored; use add_matrix() to multiply");
 
-        ensure_dp_();
-        const auto n = matrices_.size();
-        if (n == 0)
-            throw std::logic_error("MatrixChain: empty chain");
-        if (n == 1)
-            return matrices_[0];
+        build_dp_cache_if_needed_();
 
-        return multiply_range_(0, static_cast<int>(n - 1));
+        const std::size_t matrix_count = matrix_storage_.size();
+        if (matrix_count == 0)
+            throw std::logic_error("MatrixChain: empty chain");
+        if (matrix_count == 1)
+            return matrix_storage_[0]; // copy
+
+        return multiply_range_recursively_(0, static_cast<int>(matrix_count - 1));
     }
 
 private:
-    struct Cell
+    struct DpCell
     {
-        std::uint64_t    cost = 0;
-        int              split = -1;
-        std::vector<int> order;
-        bool             set = false;
+        std::uint64_t minimal_cost = 0;
+        int split_index = -1;
+        std::vector<int> operation_order;
+        bool is_initialized = false;
     };
 
-    std::vector<std::size_t> dims_;
-    std::vector<MatrixT>     matrices_;
-    bool                     dirty_ = true;
+    std::vector<std::size_t> dimension_chain_;
+    std::vector<MatrixType>  matrix_storage_;
 
-    std::vector<std::vector<Cell>> dp_;
+    bool dp_cache_is_dirty_ = true;
+    std::vector<std::vector<DpCell>> dp_table_;
 
-    static std::uint64_t add_cost_(std::uint64_t base, std::size_t a, std::size_t b, std::size_t c)
+private:
+    static std::uint64_t add_multiplication_cost_checked_(std::uint64_t base_cost,
+                                                          std::size_t  left_rows,
+                                                          std::size_t  shared_dimension,
+                                                          std::size_t  right_cols)
     {
-        __uint128_t mult = static_cast<__uint128_t>(a) * static_cast<__uint128_t>(b) * static_cast<__uint128_t>(c);
-        __uint128_t sum  = static_cast<__uint128_t>(base) + mult;
-        if (sum > std::numeric_limits<std::uint64_t>::max())
+        __uint128_t multiplication_part =
+            static_cast<__uint128_t>(left_rows) *
+            static_cast<__uint128_t>(shared_dimension) *
+            static_cast<__uint128_t>(right_cols);
+
+        __uint128_t total_sum =
+            static_cast<__uint128_t>(base_cost) + multiplication_part;
+
+        if (total_sum > std::numeric_limits<std::uint64_t>::max())
             throw std::overflow_error("MatrixChain: multiplication cost overflow");
-        return static_cast<std::uint64_t>(sum);
+
+        return static_cast<std::uint64_t>(total_sum);
     }
 
-    void ensure_dp_()
+    void build_dp_cache_if_needed_()
     {
-        if (!dirty_)
+        if (!dp_cache_is_dirty_)
             return;
 
-        const auto n = matrix_count();
-        dp_.assign(n, std::vector<Cell>(n));
+        const std::size_t matrix_count = get_matrix_count();
+        dp_table_.assign(matrix_count, std::vector<DpCell>(matrix_count));
 
-        for (std::size_t i = 0; i < n; ++i)
+        for (std::size_t single_index = 0; single_index < matrix_count; ++single_index)
         {
-            dp_[i][i].cost  = 0;
-            dp_[i][i].split = -1;
-            dp_[i][i].order.clear();
-            dp_[i][i].set   = true;
+            dp_table_[single_index][single_index].minimal_cost   = 0;
+            dp_table_[single_index][single_index].split_index    = -1;
+            dp_table_[single_index][single_index].operation_order.clear();
+            dp_table_[single_index][single_index].is_initialized = true;
         }
 
-        for (std::size_t len = 2; len <= n; ++len)
+        for (std::size_t chain_length = 2; chain_length <= matrix_count; ++chain_length)
         {
-            for (std::size_t i = 0; i + len - 1 < n; ++i)
+            for (std::size_t left_index = 0; left_index + chain_length - 1 < matrix_count; ++left_index)
             {
-                const std::size_t j = i + len - 1;
+                const std::size_t right_index = left_index + chain_length - 1;
 
-                Cell best;
-                best.cost = std::numeric_limits<std::uint64_t>::max();
-                best.set  = false;
+                DpCell best_cell;
+                best_cell.minimal_cost   = std::numeric_limits<std::uint64_t>::max();
+                best_cell.is_initialized = false;
 
-                for (std::size_t k = i; k < j; ++k)
+                for (std::size_t split_index = left_index; split_index < right_index; ++split_index)
                 {
-                    const Cell& L = dp_[i][k];
-                    const Cell& R = dp_[k + 1][j];
+                    const DpCell& left_cell  = dp_table_[left_index     ][split_index];
+                    const DpCell& right_cell = dp_table_[split_index + 1][right_index];
 
-                    std::uint64_t cand = L.cost;
-                    if (cand > std::numeric_limits<std::uint64_t>::max() - R.cost)
+                    if (left_cell.minimal_cost > std::numeric_limits<std::uint64_t>::max() - right_cell.minimal_cost)
                         throw std::overflow_error("MatrixChain: cost overflow");
-                    cand += R.cost;
 
-                    cand = add_cost_(cand, dims_[i], dims_[k + 1], dims_[j + 1]);
+                    std::uint64_t candidate_cost = left_cell.minimal_cost + right_cell.minimal_cost;
 
-                    std::vector<int> cand_order;
-                    cand_order.reserve(L.order   .size() + R.order.size() + 1);
-                    cand_order.insert (cand_order.end(),  L.order.begin(), L.order.end());
-                    cand_order.insert (cand_order.end(),  R.order.begin(), R.order.end());
+                    candidate_cost = add_multiplication_cost_checked_(candidate_cost,
+                                                                      dimension_chain_[left_index],
+                                                                      dimension_chain_[split_index + 1],
+                                                                      dimension_chain_[right_index + 1]);
 
-                    cand_order.push_back(static_cast<int>(k));
+                    std::vector<int> candidate_order;
+                    candidate_order.reserve(left_cell .operation_order.size()  +
+                                            right_cell.operation_order.size() + 1);
 
-                    const bool better_cost = (!best.set) || (cand < best.cost);
-                    const bool tie_lexi    =   best.set  && (cand == best.cost) &&
-                        std::lexicographical_compare(cand_order.begin(), cand_order.end(),
-                                                     best.order.begin(), best.order.end());
+                    candidate_order.insert(candidate_order.end(),
+                                           left_cell.operation_order.begin(),
+                                           left_cell.operation_order.end());
 
-                    if (better_cost || tie_lexi)
+                    candidate_order.insert(candidate_order.end(),
+                                           right_cell.operation_order.begin(),
+                                           right_cell.operation_order.end());
+
+                    candidate_order.push_back(static_cast<int>(split_index));
+
+                    const bool is_better_cost =
+                        (!best_cell.is_initialized) || (candidate_cost < best_cell.minimal_cost);
+
+                    const bool is_tie_but_lexicographically_smaller =
+                        best_cell.is_initialized &&
+                        (candidate_cost == best_cell.minimal_cost) &&
+                        std::lexicographical_compare(
+                            candidate_order.begin(),
+                            candidate_order.end(),
+                            best_cell.operation_order.begin(),
+                            best_cell.operation_order.end());
+
+                    if (is_better_cost || is_tie_but_lexicographically_smaller)
                     {
-                        best.cost  = cand;
-                        best.split = static_cast<int>(k);
-                        best.order = std::move(cand_order);
-                        best.set   = true;
+                        best_cell.minimal_cost    = candidate_cost;
+                        best_cell.split_index     = static_cast<int>(split_index);
+                        best_cell.operation_order = std::move(candidate_order);
+                        best_cell.is_initialized  = true;
                     }
                 }
 
-                dp_[i][j] = std::move(best);
+                dp_table_[left_index][right_index] = std::move(best_cell);
             }
         }
 
-        dirty_ = false;
+        dp_cache_is_dirty_ = false;
     }
 
-    MatrixT multiply_range_(int i, int j)
+    MatrixType multiply_range_recursively_(int left_index, int right_index)
     {
-        if (i == j)
-            return matrices_[static_cast<std::size_t>(i)];
+        if (left_index == right_index)
+            return matrix_storage_[static_cast<std::size_t>(left_index)]; // copy
 
-        const int k = dp_[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)].split;
-        if (k < i || k >= j)
+        const int split_index =
+            dp_table_[static_cast<std::size_t>(left_index)][static_cast<std::size_t>(right_index)].split_index;
+
+        if (split_index < left_index || split_index >= right_index)
             throw std::logic_error("MatrixChain: invalid split");
 
-        MatrixT left  = multiply_range_(i, k);
-        MatrixT right = multiply_range_(k + 1, j);
-        return left * right;
+        MatrixType left_product  = multiply_range_recursively_(left_index, split_index);
+        MatrixType right_product = multiply_range_recursively_(split_index + 1, right_index);
+
+        return left_product * right_product;
     }
 };
 

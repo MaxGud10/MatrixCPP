@@ -6,8 +6,20 @@
 #include "matrix.hpp"
 #include "double_compare.hpp"
 #include "controllable.hpp"
+#include "matrix_chain.hpp"
 
 int Controllable::control_ = 0;
+
+namespace {
+
+template <typename T>
+matrix::Matrix<T> make_matrix(std::size_t rows, std::size_t cols, std::initializer_list<T> values)
+{
+    std::vector<T> data(values);
+    return matrix::Matrix<T>(rows, cols, data.begin(), data.end());
+}
+
+} // namespace
 
 TEST(MATRIX_FUNCTIONS, negate) {
     std::vector<double> vector_for_test{};
@@ -27,7 +39,7 @@ TEST(MATRIX_FUNCTIONS, negate) {
     matrix::Matrix<double> expected_matrix{2, 2, expected_vector.begin(), expected_vector.end()};
 
     ASSERT_TRUE(matrix_for_test.negate() == expected_matrix);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, transpose) {
     std::vector<double> vector_for_test{};
@@ -36,7 +48,7 @@ TEST(MATRIX_FUNCTIONS, transpose) {
     vector_for_test.push_back(0.0);
     vector_for_test.push_back(-15.7);
     vector_for_test.push_back(100.0);
-    vector_for_test.push_back(-90.0);    
+    vector_for_test.push_back(-90.0);
 
     matrix::Matrix<double> matrix_for_test{2, 3, vector_for_test.begin(), vector_for_test.end()};
 
@@ -51,7 +63,7 @@ TEST(MATRIX_FUNCTIONS, transpose) {
     matrix::Matrix<double> expected_matrix{3, 2, expected_vector.begin(), expected_vector.end()};
 
     ASSERT_TRUE(matrix_for_test.transpose() == expected_matrix);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, swap_rows_1) {
     std::vector<double> vector_for_test{};
@@ -60,24 +72,24 @@ TEST(MATRIX_FUNCTIONS, swap_rows_1) {
     vector_for_test.push_back(0.0);
     vector_for_test.push_back(-15.7);
     vector_for_test.push_back(100.0);
-    vector_for_test.push_back(-90.0);    
+    vector_for_test.push_back(-90.0);
 
     matrix::Matrix<double> matrix_for_test{2, 3, vector_for_test.begin(), vector_for_test.end()};
 
     std::vector<double> expected_vector{};
     expected_vector.push_back(-15.7);
     expected_vector.push_back(100.0);
-    expected_vector.push_back(-90.0);       
+    expected_vector.push_back(-90.0);
     expected_vector.push_back(2.5);
     expected_vector.push_back(7.9);
-    expected_vector.push_back(0.0);    
- 
+    expected_vector.push_back(0.0);
+
     matrix::Matrix<double> expected_matrix{2, 3, expected_vector.begin(), expected_vector.end()};
 
     matrix_for_test.swap_rows(0, 1);
 
     ASSERT_TRUE(matrix_for_test == expected_matrix);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, swap_rows_2) {
     std::vector<double> vector_for_test{};
@@ -93,11 +105,11 @@ TEST(MATRIX_FUNCTIONS, swap_rows_2) {
     std::vector<double> expected_vector{};
     expected_vector.push_back(-15.7);
     expected_vector.push_back(100.0);
-    expected_vector.push_back(-90.0);       
+    expected_vector.push_back(-90.0);
     expected_vector.push_back(2.5);
     expected_vector.push_back(7.9);
     expected_vector.push_back(0.0);
- 
+
     matrix::Matrix<double> expected_matrix{2, 3, expected_vector.begin(), expected_vector.end()};
 
     matrix_for_test.swap_rows(1, 0);
@@ -120,7 +132,7 @@ TEST(MATRIX_FUNCTIONS, trace) {
     matrix::Matrix<double> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_DOUBLE_EQ(matrix_for_test.trace(), 47.5);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, multiply_diag) {
     std::vector<double> vector_for_test{};
@@ -137,7 +149,7 @@ TEST(MATRIX_FUNCTIONS, multiply_diag) {
     matrix::Matrix<double> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_DOUBLE_EQ(matrix_for_test.multiply_diag(), -13'750);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_1) {
     std::vector<int> vector_for_test{};
@@ -154,7 +166,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_1) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 0);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_2) {
     std::vector<int> vector_for_test{};
@@ -171,7 +183,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_2) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), -11);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_3) {
     std::vector<int> vector_for_test{};
@@ -188,7 +200,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_3) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), -4);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_4) {
     std::vector<int> vector_for_test{};
@@ -205,7 +217,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_4) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 188);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_5) {
     std::vector<int> vector_for_test{};
@@ -221,7 +233,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_5) {
 
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 19);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_6) {
     std::vector<int> vector_for_test{};
@@ -237,7 +249,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_6) {
 
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 3);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_7) {
     std::vector<int> vector_for_test{};
@@ -254,7 +266,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_7) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), -230);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_8) {
     std::vector<int> vector_for_test{};
@@ -271,7 +283,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_8) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 19);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_9) {
     std::vector<int> vector_for_test{};
@@ -288,7 +300,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_9) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 67'108);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_10) {
     std::vector<int> vector_for_test{};
@@ -305,7 +317,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_10) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 3'842'245);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_11) {
     std::vector<int> vector_for_test{};
@@ -322,7 +334,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_11) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 3'842'245);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_12) {
     std::vector<int> vector_for_test{};
@@ -366,7 +378,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_13) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), -2'331);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_14) {
     std::vector<int> vector_for_test{};
@@ -383,7 +395,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_14) {
     matrix::Matrix<int> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_EQ(matrix_for_test.get_det_by_gauss_algorithm(), -674'488);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_15) {
     std::vector<double> vector_for_test{};
@@ -402,7 +414,7 @@ TEST(MATRIX_FUNCTIONS, get_determinant_15) {
     matrix::Matrix<double> matrix_for_test{3, 3, vector_for_test.begin(), vector_for_test.end()};
 
     ASSERT_DOUBLE_EQ(matrix_for_test.get_det_by_gauss_algorithm(), 1'832.722);
-} 
+}
 
 TEST(MATRIX_FUNCTIONS, get_determinant_16) {
     std::array<int, 100> array_for_test{
@@ -442,10 +454,10 @@ TEST(MATRIX_FUNCTIONS, get_determinant_17) {
 
 TEST(MATRIX_FUNCTIONS, copy_ctor_throws) {
     int old = Controllable::control_;
-    Controllable::control_ = 1000;           
+    Controllable::control_ = 1000;
     matrix::Matrix<Controllable> m1{3, 3};
 
-    Controllable::control_ = 0;               
+    Controllable::control_ = 0;
     EXPECT_THROW( ([&]{ matrix::Matrix<Controllable> tmp{m1}; }()), std::bad_alloc );
 
     EXPECT_EQ(m1.get_rows(), 3u);
@@ -468,7 +480,7 @@ TEST(MATRIX_FUNCTIONS, copy_assignment_throws) {
     matrix::Matrix<Controllable> m1{3, 3};
     matrix::Matrix<Controllable> m2{3, 3};
 
-    Controllable::control_ = 0;               
+    Controllable::control_ = 0;
     EXPECT_THROW( (m2 = m1), std::bad_alloc );
 
     EXPECT_EQ(m2.get_rows(), 3u);
@@ -490,7 +502,7 @@ TEST(MATRIX_CONSTRUCTOR, iterator_range_too_short) {
     std::vector<int> data{};
     data.push_back(1);
     data.push_back(2);
-    data.push_back(3); 
+    data.push_back(3);
 
     ASSERT_THROW(
         (matrix::Matrix<int>{2, 2, data.begin(), data.end()}),
@@ -504,7 +516,7 @@ TEST(MATRIX_CONSTRUCTOR, iterator_range_too_long) {
     data.push_back(2);
     data.push_back(3);
     data.push_back(4);
-    data.push_back(5); 
+    data.push_back(5);
 
     ASSERT_THROW(
         (matrix::Matrix<int>{2, 2, data.begin(), data.end()}),
@@ -525,6 +537,142 @@ TEST(MATRIX_CONSTRUCTOR, iterator_range_exact_size) {
     );
 }
 
+TEST(MATRIX_CHAIN, add_dimensions_valid_chain)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+    chain.add_dimensions(5, 60);
+
+    EXPECT_EQ(chain.get_matrix_count(), 3u);
+}
+
+TEST(MATRIX_CHAIN, add_dimensions_invalid_chain_throws)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+
+    EXPECT_THROW(chain.add_dimensions(31, 5), std::invalid_argument);
+}
+
+TEST(MATRIX_CHAIN, naive_cost_example_from_text)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+    chain.add_dimensions(5, 60);
+
+    EXPECT_EQ(chain.get_naive_multiplication_cost(), 4500u);
+    EXPECT_EQ(chain.get_optimal_multiplication_cost(), 4500u);
+    EXPECT_DOUBLE_EQ(chain.get_improvement_factor(), 1.0);
+}
+
+TEST(MATRIX_CHAIN, prefers_better_parenthesization_cost)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(30, 35);
+    chain.add_dimensions(35, 15);
+    chain.add_dimensions(15, 5);
+    chain.add_dimensions(5, 10);
+
+    EXPECT_EQ(chain.get_naive_multiplication_cost(), 19500u);
+    EXPECT_EQ(chain.get_optimal_multiplication_cost(), 9375u);
+
+    const auto optimal_order = chain.get_optimal_operation_order();
+    ASSERT_EQ(optimal_order.size(), 3u);
+    EXPECT_EQ(optimal_order[0], 1);
+    EXPECT_EQ(optimal_order[1], 0);
+    EXPECT_EQ(optimal_order[2], 2);
+
+    EXPECT_NEAR(chain.get_improvement_factor(), 2.08, 1e-12);
+}
+
+TEST(MATRIX_CHAIN, lexicographically_smallest_order_on_tie)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 10);
+    chain.add_dimensions(10, 10);
+    chain.add_dimensions(10, 10);
+
+    EXPECT_EQ(chain.get_optimal_multiplication_cost(), 2000u);
+
+    const auto order = chain.get_optimal_operation_order();
+    ASSERT_EQ(order.size(), 2u);
+    EXPECT_EQ(order[0], 0);
+    EXPECT_EQ(order[1], 1);
+}
+
+TEST(MATRIX_CHAIN, multiply_in_optimal_order_throws_if_only_dimensions_added)
+{
+    matrix::MatrixChain<int> chain;
+    chain.add_dimensions(2, 2);
+    chain.add_dimensions(2, 2);
+
+    EXPECT_THROW(chain.multiply_in_optimal_order(), std::logic_error);
+}
+
+TEST(MATRIX_MULTIPLY, operator_multiply_basic)
+{
+    auto A = make_matrix<int>(2, 2, {1, 2, 3, 4});
+    auto B = make_matrix<int>(2, 2, {5, 6, 7, 8});
+
+    auto expected = make_matrix<int>(2, 2, {19, 22, 43, 50});
+    auto result = A * B;
+
+    EXPECT_TRUE(result == expected);
+}
+
+TEST(MATRIX_MULTIPLY, operator_multiply_incompatible_dimensions_throws)
+{
+    auto A = make_matrix<int>(2, 3, {1, 2, 3, 4, 5, 6});
+    auto B = make_matrix<int>(2, 2, {1, 2, 3, 4});
+
+    EXPECT_THROW((void)(A * B), std::invalid_argument);
+}
+
+TEST(MATRIX_CHAIN, multiply_in_optimal_order_correct_result_small)
+{
+    auto A = make_matrix<int>(2, 3, {
+        1, 2, 3,
+        4, 5, 6
+    });
+
+    auto B = make_matrix<int>(3, 2, {
+        7,  8,
+        9,  10,
+        11, 12
+    });
+
+    auto C = make_matrix<int>(2, 2, {
+        1, 0,
+        0, 1
+    });
+
+    auto expected = make_matrix<int>(2, 2, {
+        58, 64,
+        139, 154
+    });
+
+    matrix::MatrixChain<int> chain;
+    chain.add_matrix(A);
+    chain.add_matrix(B);
+    chain.add_matrix(C);
+
+    auto result = chain.multiply_in_optimal_order();
+    EXPECT_TRUE(result == expected);
+}
+
+TEST(MATRIX_CHAIN, dp_cache_updates_after_adding_more_matrices)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+
+    EXPECT_EQ(chain.get_optimal_multiplication_cost(), 1500u);
+
+    chain.add_dimensions(5, 60);
+    EXPECT_EQ(chain.get_optimal_multiplication_cost(), 4500u);
+}
 
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);

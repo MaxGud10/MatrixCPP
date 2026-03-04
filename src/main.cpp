@@ -2,15 +2,15 @@
 
 #include "matrix.hpp"
 
-int main() 
+int main()
 {
     size_t matrix_degree = 0;
-    
+
     std::cin >> matrix_degree;
 
-    const size_t MAX_MATRIX_SIZE = 2000; 
+    const size_t MAX_MATRIX_SIZE = 2000;
 
-    if ((!std::cin.good()) || (matrix_degree == 0) || (matrix_degree > MAX_MATRIX_SIZE)) 
+    if ((!std::cin.good()) || (matrix_degree == 0) || (matrix_degree > MAX_MATRIX_SIZE))
     {
         std::cerr << "Error input" << std::endl;
         return -1;
@@ -20,7 +20,7 @@ int main()
 
     std::cin >> matrix;
 
-    if (!std::cin.good())  
+    if (!std::cin.good())
     {
         std::cerr << "Error input" << std::endl;
         return -1;
@@ -30,3 +30,4 @@ int main()
 
     return 0;
 }
+
