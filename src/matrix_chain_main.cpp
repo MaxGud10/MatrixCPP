@@ -5,8 +5,7 @@
 
 #include "matrix_chain.hpp"
 
-// TODO: переписать README
-namespace // TODO: убрать
+namespace 
 {
 
 void print_order_line(const std::vector<int>& operation_order)
