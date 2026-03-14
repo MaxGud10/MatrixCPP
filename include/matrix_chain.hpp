@@ -140,6 +140,57 @@ public:
         return multiply_range_recursively_(0, static_cast<int>(matrix_count - 1));
     }
 
+    static std::vector<int> merge_orders_lexicographically(const std::vector<int> &left_order,
+                                                           const std::vector<int> &right_order)
+    {
+        std::vector<int> merged_order;
+        merged_order.reserve(left_order.size() + right_order.size());
+
+        std::size_t left_index  = 0;
+        std::size_t right_index = 0;
+
+        while (left_index < left_order.size() && right_index < right_order.size())
+        {
+            const bool left_suffix_is_smaller =
+                std::lexicographical_compare(left_order .begin() + static_cast<std::ptrdiff_t>(left_index),
+                                             left_order .end  (),
+                                             right_order.begin() + static_cast<std::ptrdiff_t>(right_index),
+                                             right_order.end  ());
+
+            const bool right_suffix_is_smaller =
+                std::lexicographical_compare(right_order.begin() + static_cast<std::ptrdiff_t>(right_index),
+                                             right_order.end  (),
+                                             left_order .begin() + static_cast<std::ptrdiff_t>(left_index),
+                                             left_order .end  ());
+
+            if (left_suffix_is_smaller || (!left_suffix_is_smaller && !right_suffix_is_smaller))
+            {
+                merged_order.push_back(left_order[left_index]);
+                ++left_index;
+            }
+            
+            else
+            {
+                merged_order.push_back(right_order[right_index]);
+                ++right_index;
+            }
+        }
+
+        while (left_index < left_order.size())
+        {
+            merged_order.push_back(left_order[left_index]);
+            ++left_index;
+        }
+
+        while (right_index < right_order.size())
+        {
+            merged_order.push_back(right_order[right_index]);
+            ++right_index;
+        }
+
+        return merged_order;
+    }
+
 private:
     struct DpCell
     {
@@ -216,19 +267,12 @@ private:
                                                                       dimension_chain_[split_index + 1],
                                                                       dimension_chain_[right_index + 1]);
 
-                    std::vector<int> candidate_order;
-                    candidate_order.reserve(left_cell .operation_order.size()  +
-                                            right_cell.operation_order.size() + 1);
-
-                    candidate_order.insert(candidate_order.end(),
-                                           left_cell.operation_order.begin(),
-                                           left_cell.operation_order.end());
-
-                    candidate_order.insert(candidate_order.end(),
-                                           right_cell.operation_order.begin(),
-                                           right_cell.operation_order.end());
+                    std::vector<int> candidate_order =
+                        merge_orders_lexicographically(left_cell .operation_order,
+                                                        right_cell.operation_order);
 
                     candidate_order.push_back(static_cast<int>(split_index));
+
 
                     const bool is_better_cost =
                         (!best_cell.is_initialized) || (candidate_cost < best_cell.minimal_cost);
