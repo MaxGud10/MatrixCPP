@@ -674,6 +674,49 @@ TEST(MATRIX_CHAIN, dp_cache_updates_after_adding_more_matrices)
     EXPECT_EQ(chain.get_optimal_multiplication_cost(), 4500u);
 }
 
+TEST(MATRIX_CHAIN, periodic_pattern_small_4_matrices)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+    chain.add_dimensions(5, 10);
+    chain.add_dimensions(10, 30);
+
+    const auto order = chain.get_optimal_operation_order();
+    std::vector<int> expected{0, 2, 1};
+
+    EXPECT_EQ(order, expected);
+}
+
+TEST(MATRIX_CHAIN, periodic_pattern_small_5_matrices)
+{
+    matrix::MatrixChain<double> chain;
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+    chain.add_dimensions(5, 10);
+    chain.add_dimensions(10, 30);
+    chain.add_dimensions(30, 5);
+
+    const auto order = chain.get_optimal_operation_order();
+    std::vector<int> expected{0, 3, 2, 1};
+
+    EXPECT_EQ(order, expected);
+}
+
+TEST(MATRIX_CHAIN, periodic_pattern_small_8_matrices)
+{
+    std::vector<std::size_t> dims{10, 30, 5, 10, 30, 5, 10, 30, 5};
+    matrix::MatrixChain<double> chain;
+
+    for (std::size_t i = 0; i + 1 < dims.size(); ++i)
+        chain.add_dimensions(dims[i], dims[i + 1]);
+
+    const auto order = chain.get_optimal_operation_order();
+    std::vector<int> expected{0, 3, 2, 6, 5, 4, 1};
+
+    EXPECT_EQ(order, expected);
+}
+
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
 
